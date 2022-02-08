@@ -3,7 +3,7 @@
         {
             "input": "src",
             "output": "/",
-            "filter": "\\.(js|html|css|json|glsl)$",
+            "filter": "\\.(js|html|css|json|glsl|wgsl)$",
             "recursive": true,
             "parse": true
         },
@@ -57,6 +57,11 @@
         {
             "input": "/uispecs",
             "output": "build/uispecs.json",
+            "mode": "json"
+        },
+        {
+            "input": "/wgsl/shaders",
+            "output": "build/wgsl/shaders.json",
             "mode": "json"
         }
     ]

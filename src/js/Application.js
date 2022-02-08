@@ -6,6 +6,7 @@
 // #link dialogs
 // #link ui
 // #link RenderingContext
+// #link WebGPURenderingContext
 
 class Application {
 
@@ -16,7 +17,7 @@ constructor() {
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);
     this._handleEnvmapLoad = this._handleEnvmapLoad.bind(this);
 
-    this._renderingContext = new RenderingContext();
+    this._renderingContext = new WebGPURenderingContext();
     this._canvas = this._renderingContext.getCanvas();
     this._canvas.className += 'renderer';
     document.body.appendChild(this._canvas);
@@ -66,7 +67,9 @@ constructor() {
     this._mainDialog.addEventListener('rendererchange', this._handleRendererChange);
     this._mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
     this._mainDialog.trigger('rendererchange', this._mainDialog.getSelectedRenderer());
-    this._mainDialog.trigger('tonemapperchange', this._mainDialog.getSelectedToneMapper());
+    //this._mainDialog.trigger('tonemapperchange', this._mainDialog.getSelectedToneMapper());
+
+    this._renderingContext.startRendering(); // TODO: Temporary
 }
 
 _handleFileDrop(e) {

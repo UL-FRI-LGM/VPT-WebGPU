@@ -20,6 +20,10 @@ const resources = {
         type: 'json',
         url: 'uispecs.json'
     },
+    wgsl: {
+        type: 'json',
+        url: 'wgsl/shaders.json'
+    },
     all: {
         type: 'dummy',
         dependencies: [
@@ -38,14 +42,16 @@ let SHADERS;
 let MIXINS;
 let TEMPLATES;
 let UISPECS;
+let WGSL;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const rl = ResourceLoader.instance;
-    [ SHADERS, MIXINS, TEMPLATES, UISPECS ] = await Promise.all([
+    [ SHADERS, MIXINS, TEMPLATES, UISPECS, WGSL ] = await Promise.all([
         rl.loadResource('shaders'),
         rl.loadResource('mixins'),
         rl.loadResource('templates'),
         rl.loadResource('uispecs'),
+        rl.loadResource('wgsl'),
     ]);
     const application = new Application();
 });
