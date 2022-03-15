@@ -64,6 +64,9 @@ render() {
 
     // this._renderBuffer.use();
     // this._renderFrame();
+
+
+    this._generateFrame();
 }
 
 reset() {
@@ -92,6 +95,40 @@ _rebuildBuffers() {
     // this._frameBuffer = new SingleBuffer(gl, this._getFrameBufferSpec());
     // this._accumulationBuffer = new DoubleBuffer(gl, this._getAccumulationBufferSpec());
     // this._renderBuffer = new SingleBuffer(gl, this._getRenderBufferSpec());
+
+    if (!this._frameBufferTex) {
+        let spec = this._getFrameBufferSpec()[0];
+        this._frameBufferTex = this._device.createTexture({
+            size: [spec.width, spec.height, 1],
+            format: spec.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
+        });
+
+        this._frameBufferDepthTex = this._device.createTexture({
+            size: [spec.width, spec.height, 1],
+            format: "depth24plus-stencil8",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT // | GPUTextureUsage.COPY_SRC
+        });
+
+
+        let tempTexData = new Uint8Array(256 * 256 * 4)
+        for (let i = 0; i < 256 * 256; ++i) {
+            tempTexData[4*i] = 255
+            tempTexData[4*i+1] = 0
+            tempTexData[4*i+2] = 255
+            tempTexData[4*i+3] = 255
+        }
+        let tempTexBuffer = this._device.createBuffer({
+            size: ((tempTexData.byteLength + 3) & ~3),
+            usage: GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true
+        });
+        new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
+        tempTexBuffer.unmap();
+        let ce = this._device.createCommandEncoder({});
+        ce.copyBufferToTexture({ buffer: tempTexBuffer, bytesPerRow: 256 * 4 }, {texture: this._frameBufferTex}, { width: 256, height: 256});
+        this._device.queue.submit([ce.finish()]);
+    }
 }
 
 setVolume(volume) {
@@ -124,7 +161,7 @@ calculateMVPInverseTranspose() {
 
 getTexture() {
     // return this._renderBuffer.getAttachments().color[0];
-    return null;
+    return this._frameBufferTex;
 }
 
 _resetFrame() {

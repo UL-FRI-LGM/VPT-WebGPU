@@ -12,7 +12,7 @@
 
 class WebGPURenderingContext {
 
-constructor(options) {
+constructor(onReady, options) {
     this._render = this._render.bind(this);
     // this._webglcontextlostHandler = this._webglcontextlostHandler.bind(this);
     // this._webglcontextrestoredHandler = this._webglcontextrestoredHandler.bind(this);
@@ -26,26 +26,30 @@ constructor(options) {
     // this._canvas.addEventListener('webglcontextlost', this._webglcontextlostHandler);
     // this._canvas.addEventListener('webglcontextrestored', this._webglcontextrestoredHandler);
 
-    this._initWebGPU();
+    this._initWebGPU(() => {
+       this._camera = new Camera();
+        this._camera.position.z = 1.5;
+        this._camera.fovX = 0.3;
+        this._camera.fovY = 0.3;
+        this._camera.updateMatrices();
 
-    this._camera = new Camera();
-    this._camera.position.z = 1.5;
-    this._camera.fovX = 0.3;
-    this._camera.fovY = 0.3;
-    this._camera.updateMatrices();
+        this._cameraController = new OrbitCameraController(this._camera, this._canvas);
 
-    this._cameraController = new OrbitCameraController(this._camera, this._canvas);
+        this._volume = new Volume(this._gl);
+        this._scale = new Vector(1, 1, 1);
+        this._translation = new Vector(0, 0, 0);
+        this._isTransformationDirty = true;
+        this._updateMvpInverseMatrix();
 
-    this._volume = new Volume(this._gl);
-    this._scale = new Vector(1, 1, 1);
-    this._translation = new Vector(0, 0, 0);
-    this._isTransformationDirty = true;
-    this._updateMvpInverseMatrix();
+        onReady(); // TODO: Dirty hack, remove
+    });
+
+    
 }
 
 // ============================ WEBGPU SUBSYSTEM ============================ //
 
-async _initWebGPU() {
+async _initWebGPU(onInit) {
     this._adapter = await window.navigator.gpu.requestAdapter();
     this._device = await this._adapter.requestDevice();
     this._context = this._canvas.getContext("webgpu");
@@ -64,11 +68,32 @@ async _initWebGPU() {
         magFilter: "nearest"
     });
 
+
+
+    let tempTexData = new Uint8Array(256 * 256 * 4)
+    for (let i = 0; i < 256 * 256; ++i) {
+        tempTexData[4*i] = 255
+        tempTexData[4*i+1] = 0
+        tempTexData[4*i+2] = 0
+        tempTexData[4*i+3] = 255
+    }
+    let tempTexBuffer = this._device.createBuffer({
+        size: ((tempTexData.byteLength + 3) & ~3),
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
+    tempTexBuffer.unmap();
+    
     this._tempTex = this._device.createTexture({
         size: [256, 256, 1],
         format: "rgba8unorm",
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
+    
+    let ce = this._device.createCommandEncoder({});
+    ce.copyBufferToTexture({ buffer: tempTexBuffer, bytesPerRow: 256 * 4 }, {texture: this._tempTex}, { width: 256, height: 256});
+    this._device.queue.submit([ce.finish()]);
 
     this._quadVSModule = this._device.createShaderModule({ code: WGSL.quad.vertex });
     this._quadFSModule = this._device.createShaderModule({ code: WGSL.quad.fragment });
@@ -196,6 +221,8 @@ async _initWebGPU() {
     // }, MIXINS).quad;
 
     // this._clipQuad = WebGL.createClipQuad(gl);
+
+    onInit(); // TODO: Dirty hack, remove
 }
 
 _webglcontextlostHandler(e) {
@@ -253,11 +280,26 @@ chooseRenderer(renderer) {
         this._renderer.destroy();
     }
     const rendererClass = this._getRendererClass(renderer);
-    this._renderer = new rendererClass(this._gl, this._volume, this._environmentTexture);
+    this._renderer = new rendererClass(this._device, this._volume, this._environmentTexture);
     if (this._toneMapper) {
         this._toneMapper.setTexture(this._renderer.getTexture());
     }
     this._isTransformationDirty = true;
+
+    // TODO: Delete old bind group (memory leak?)
+    this._quadBindGroup = this._device.createBindGroup({
+        layout: this._quadBindGroupLayout,
+        entries: [
+            {
+                binding: 0,
+                resource: this._sampler
+            },
+            {
+                binding: 1,
+                resource: this._renderer.getTexture().createView()
+            }
+        ]
+    });
 }
 
 chooseToneMapper(toneMapper) {
@@ -329,7 +371,7 @@ _render() {
 
     this._updateMvpInverseMatrix();
 
-    // this._renderer.render();
+    this._renderer.render();
     // this._toneMapper.render();
 
     const commandEncoder = device.createCommandEncoder();
@@ -341,11 +383,12 @@ _render() {
             storeOp: "store"
         }]
     });
+
     quadPass.setPipeline(this._quadPipeline);
     quadPass.setVertexBuffer(0, this._clipQuad);
     quadPass.setBindGroup(0, this._quadBindGroup);
     quadPass.draw(6, 1, 0, 0);
-    quadPass.endPass();
+    quadPass.end();
 
     device.queue.submit([commandEncoder.finish()]);
 
@@ -427,7 +470,6 @@ hasComputeCapabilities() {
 }
 
 _getRendererClass(renderer) {
-    console.log("Henlo");
     return WebGPUEAMRenderer;
     switch (renderer) {
         case 'mip' : return MIPRenderer;

@@ -17,59 +17,60 @@ constructor() {
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);
     this._handleEnvmapLoad = this._handleEnvmapLoad.bind(this);
 
-    this._renderingContext = new WebGPURenderingContext();
-    this._canvas = this._renderingContext.getCanvas();
-    this._canvas.className += 'renderer';
-    document.body.appendChild(this._canvas);
+    this._renderingContext = new WebGPURenderingContext(() => {
+        this._canvas = this._renderingContext.getCanvas();
+        this._canvas.className += 'renderer';
+        document.body.appendChild(this._canvas);
 
-    window.addEventListener('resize', () => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        this._renderingContext.resize(width, height);
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            this._renderingContext.resize(width, height);
+        });
+        CommonUtils.trigger('resize', window);
+
+        document.body.addEventListener('dragover', e => e.preventDefault());
+        document.body.addEventListener('drop', this._handleFileDrop);
+
+        this._mainDialog = new MainDialog();
+        if (!this._renderingContext.hasComputeCapabilities()) {
+            this._mainDialog.disableMCC();
+        }
+
+        this._statusBar = new StatusBar();
+        this._statusBar.appendTo(document.body);
+
+        this._volumeLoadDialog = new VolumeLoadDialog();
+        this._volumeLoadDialog.appendTo(this._mainDialog.getVolumeLoadContainer());
+        this._volumeLoadDialog.addEventListener('load', this._handleVolumeLoad);
+
+        this._envmapLoadDialog = new EnvmapLoadDialog();
+        this._envmapLoadDialog.appendTo(this._mainDialog.getEnvmapLoadContainer());
+        this._envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
+
+        this._renderingContextDialog = new RenderingContextDialog();
+        this._renderingContextDialog.appendTo(
+            this._mainDialog.getRenderingContextSettingsContainer());
+        this._renderingContextDialog.addEventListener('resolution', options => {
+            this._renderingContext.setResolution(options.resolution);
+        });
+        this._renderingContextDialog.addEventListener('transformation', options => {
+            const s = options.scale;
+            const t = options.translation;
+            this._renderingContext.setScale(s.x, s.y, s.z);
+            this._renderingContext.setTranslation(t.x, t.y, t.z);
+        });
+        this._renderingContextDialog.addEventListener('filter', options => {
+            this._renderingContext.setFilter(options.filter);
+        });
+
+        this._mainDialog.addEventListener('rendererchange', this._handleRendererChange);
+        this._mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
+        this._mainDialog.trigger('rendererchange', this._mainDialog.getSelectedRenderer());
+        //this._mainDialog.trigger('tonemapperchange', this._mainDialog.getSelectedToneMapper());
+
+        this._renderingContext.startRendering(); // TODO: Temporary
     });
-    CommonUtils.trigger('resize', window);
-
-    document.body.addEventListener('dragover', e => e.preventDefault());
-    document.body.addEventListener('drop', this._handleFileDrop);
-
-    this._mainDialog = new MainDialog();
-    if (!this._renderingContext.hasComputeCapabilities()) {
-        this._mainDialog.disableMCC();
-    }
-
-    this._statusBar = new StatusBar();
-    this._statusBar.appendTo(document.body);
-
-    this._volumeLoadDialog = new VolumeLoadDialog();
-    this._volumeLoadDialog.appendTo(this._mainDialog.getVolumeLoadContainer());
-    this._volumeLoadDialog.addEventListener('load', this._handleVolumeLoad);
-
-    this._envmapLoadDialog = new EnvmapLoadDialog();
-    this._envmapLoadDialog.appendTo(this._mainDialog.getEnvmapLoadContainer());
-    this._envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
-
-    this._renderingContextDialog = new RenderingContextDialog();
-    this._renderingContextDialog.appendTo(
-        this._mainDialog.getRenderingContextSettingsContainer());
-    this._renderingContextDialog.addEventListener('resolution', options => {
-        this._renderingContext.setResolution(options.resolution);
-    });
-    this._renderingContextDialog.addEventListener('transformation', options => {
-        const s = options.scale;
-        const t = options.translation;
-        this._renderingContext.setScale(s.x, s.y, s.z);
-        this._renderingContext.setTranslation(t.x, t.y, t.z);
-    });
-    this._renderingContextDialog.addEventListener('filter', options => {
-        this._renderingContext.setFilter(options.filter);
-    });
-
-    this._mainDialog.addEventListener('rendererchange', this._handleRendererChange);
-    this._mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
-    this._mainDialog.trigger('rendererchange', this._mainDialog.getSelectedRenderer());
-    //this._mainDialog.trigger('tonemapperchange', this._mainDialog.getSelectedToneMapper());
-
-    this._renderingContext.startRendering(); // TODO: Temporary
 }
 
 _handleFileDrop(e) {
