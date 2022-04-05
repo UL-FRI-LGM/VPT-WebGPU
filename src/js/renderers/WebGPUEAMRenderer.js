@@ -16,23 +16,23 @@ constructor(device, volume, environmentTexture, options) {
 
     //this._programs = WebGL.buildPrograms(this._gl, SHADERS.renderers.EAM, MIXINS);
     
-    this.pvmMat = new Matrix();
+    this._mvpInvMat = new Matrix();
 
     this._generateVSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.generate.vertex });
     this._generateFSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.generate.fragment });
 
 
-    let x = 0;
-    let y = 0;
-    let z = -1;
-    let vertices = new Float32Array([
-        x-0.5, y-0.5, z, 1.0, 0.0, 0.0,
-        x+0.5, y-0.5, z, 0.0, 1.0, 0.0,
-        x,     y+0.5, z, 0.0, 0.0, 1.0
-    ])
-    this._vertexBuffer = WebGPU.createBuffer(this._device, vertices, GPUBufferUsage.VERTEX)
+    // let x = 0;
+    // let y = 0;
+    // let z = -1;
+    // let vertices = new Float32Array([
+    //     x-0.5, y-0.5, z, 1.0, 0.0, 0.0,
+    //     x+0.5, y-0.5, z, 0.0, 1.0, 0.0,
+    //     x,     y+0.5, z, 0.0, 0.0, 1.0
+    // ])
+    // this._vertexBuffer = WebGPU.createBuffer(this._device, vertices, GPUBufferUsage.VERTEX)
 
-    this._sceneBuffer = WebGPU.createBuffer(this._device, this.pvmMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+    this._sceneBuffer = WebGPU.createBuffer(this._device, this._mvpInvMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
 
     this._sceneBindGroupLayout = this._device.createBindGroupLayout({
@@ -63,15 +63,10 @@ constructor(device, volume, environmentTexture, options) {
                         { // Position
                             shaderLocation: 0, // [[location(0)]]
                             offset: 0,
-                            format: "float32x3"
-                        },
-                        { // Color
-                            shaderLocation: 1, // [[location(1)]]
-                            offset: 4 * 3,
-                            format: "float32x3"
+                            format: "float32x2"
                         }
                     ],
-                    arrayStride: 4 * 6, // sizeof(float) * 6
+                    arrayStride: 4 * 2, // sizeof(float) * 2
                     stepMode: "vertex"
                 }
             ]
@@ -139,10 +134,13 @@ _generateFrame() {
     // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 
     
-    this.pvmMat.multiply(this.viewMatrix, this.modelMatrix);
-    this.pvmMat.multiply(this.projectionMatrix, this.pvmMat);
+    // this.pvmMat.multiply(this.viewMatrix, this.modelMatrix);
+    // this.pvmMat.multiply(this.projectionMatrix, this.pvmMat);
 
-    this._device.queue.writeBuffer(this._sceneBuffer, 0, this.pvmMat.m);
+    // this._device.queue.writeBuffer(this._sceneBuffer, 0, this.pvmMat.m);
+
+    this._mvpInvMat = this.calculateMVPInverseTranspose();
+    this._device.queue.writeBuffer(this._sceneBuffer, 0, this._mvpInvMat.m);
 
 
 
@@ -164,9 +162,9 @@ _generateFrame() {
         }
     });
     renderPass.setPipeline(this._scenePipeline);
-    renderPass.setVertexBuffer(0, this._vertexBuffer);
+    renderPass.setVertexBuffer(0, this._clipQuad);
     renderPass.setBindGroup(0, this._sceneBindGroup);
-    renderPass.draw(3, 1, 0, 0);
+    renderPass.draw(6, 1, 0, 0);
     renderPass.end();
 
     this._device.queue.submit([commandEncoder.finish()]);

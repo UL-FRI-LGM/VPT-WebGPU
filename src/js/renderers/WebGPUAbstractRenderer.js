@@ -1,7 +1,7 @@
 // #part /js/renderers/WebGPUAbstractRenderer
 
 // #link ../math
-// #link ../WebGL
+// #link ../WebGPU
 // #link ../SingleBuffer
 // #link ../DoubleBuffer
 
@@ -31,6 +31,8 @@ constructor(device, volume, environmentTexture, options) {
     this.modelMatrix = new Matrix();
     this.viewMatrix = new Matrix();
     this.projectionMatrix = new Matrix();
+
+    this._clipQuad = WebGPU.createClipQuad(this._device);
 
     // this._clipQuad = WebGL.createClipQuad(gl);
     // this._clipQuadProgram = WebGL.buildPrograms(gl, {
