@@ -35,9 +35,9 @@ readMetadata(handlers) {
                         0, 0, 0, 1
                     ]
                 },
-                format: 6403,
-                internalFormat: 33321,
-                type: 5121,
+                format: 6403, // RED
+                internalFormat: 33321, // R8
+                type: 5121, // UNSIGNED_BYTE
                 placements: []
             }
         ],

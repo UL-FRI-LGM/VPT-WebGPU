@@ -6,7 +6,7 @@
 // #link Ticker
 // #link Camera
 // #link OrbitCameraController
-// #link Volume
+// #link WebGPUVolume
 // #link renderers
 // #link tonemappers
 
@@ -27,7 +27,7 @@ constructor(onReady, options) {
     // this._canvas.addEventListener('webglcontextrestored', this._webglcontextrestoredHandler);
 
     this._initWebGPU(() => {
-       this._camera = new Camera();
+        this._camera = new Camera();
         this._camera.position.z = 1.5;
         this._camera.fovX = 0.3;
         this._camera.fovY = 0.3;
@@ -35,7 +35,7 @@ constructor(onReady, options) {
 
         this._cameraController = new OrbitCameraController(this._camera, this._canvas);
 
-        this._volume = new Volume(this._gl);
+        this._volume = new WebGPUVolume(this._device);
         this._scale = new Vector(1, 1, 1);
         this._translation = new Vector(0, 0, 0);
         this._isTransformationDirty = true;
@@ -242,7 +242,7 @@ resize(width, height) {
 }
 
 setVolume(reader) {
-    this._volume = new Volume(this._gl, reader);
+    this._volume = new WebGPUVolume(this._device, reader);
     this._volume.readMetadata({
         onData: () => {
             this._volume.readModality('default', {

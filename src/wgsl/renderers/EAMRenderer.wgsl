@@ -9,7 +9,7 @@ struct VSOut {
 struct UBO {
     mvpInvMat: mat4x4<f32>
 };
-@binding(0) @group(0) var<uniform> uniforms: UBO;
+@group(0) @binding(0) var<uniform> uniforms: UBO;
 
 
 @stage(vertex)
@@ -30,6 +30,9 @@ fn main(@location(0) inPos: vec2<f32>) -> VSOut {
 
 // #part /wgsl/shaders/renderers/EAM/generate/fragment
 
+@group(0) @binding(1) var uSampler: sampler;
+@group(0) @binding(2) var uTexture: texture_3d<f32>;
+
 // TODO: Link intersectCube
 fn intersectCube(origin: vec3<f32>, direction: vec3<f32>) -> vec2<f32> {
 	var tmin: vec3<f32> = (vec3<f32>(0.0) - origin) / direction;
@@ -44,53 +47,53 @@ fn intersectCube(origin: vec3<f32>, direction: vec3<f32>) -> vec2<f32> {
 	return vec2<f32>(tnear, tfar);
 }
 
+fn sampleVolumeColor(position: vec3<f32>) -> vec4<f32> {
+    // TODO
+    //return vec4<f32>(0.2, 0.4, 0.6, 1.0);
+
+    var sample: f32 = textureSample(uTexture, uSampler, position).r;
+    return vec4<f32>(sample, sample, sample, 1.0);
+
+    // vec2 volumeSample = texture(uVolume, position).rg;
+    // vec4 transferSample = texture(uTransferFunction, volumeSample);
+    // return transferSample;
+}
+
 @stage(fragment)
 fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @location(0) vec4<f32> {
-    
-
-
     var rayDirection: vec3<f32> = rayTo - rayFrom;
     var tbounds: vec2<f32> = max(intersectCube(rayFrom, rayDirection), vec2<f32>(0.0));
 
     if (tbounds.x >= tbounds.y) {
         return vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
+    
+    var from: vec3<f32> = mix(rayFrom, rayTo, tbounds.x);
+    var to: vec3<f32> = mix(rayFrom, rayTo, tbounds.y);
 
+    // Uniforms
+    var uStepSize: f32 = 0.001; // TODO: uStepSize
+    var uExtinction: f32 = 1.0; // TODO: uExtinction
 
+    var rayStepLength: f32 = distance(from, to) * uStepSize;
 
-    return vec4<f32>(0.25, 0.5, 0.75, 1.0);
+    var t: f32 = 0.0;
+    var accumulator = vec4<f32>(0.0);
 
+    for (;t < 1.0 && accumulator.a < 0.99;) { // TODO: Use while loop
+        var position: vec3<f32> = mix(from, to, t);
+        var colorSample = sampleVolumeColor(position);
+        colorSample.a *= rayStepLength * uExtinction;
+        colorSample = vec4<f32>(colorSample.rgb * colorSample.a, colorSample.a);
+        accumulator += (1.0 - accumulator.a) * colorSample;
+        t += uStepSize;
+    }
 
+    if (accumulator.a > 1.0) {
+        accumulator = vec4<f32>(accumulator.rgb / accumulator.a, accumulator.a);
+    }
 
-    // vec3 rayDirection = vRayTo - vRayFrom;
-    // vec2 tbounds = max(intersectCube(vRayFrom, rayDirection), 0.0);
-    // if (tbounds.x >= tbounds.y) {
-    //     oColor = vec4(0, 0, 0, 1);
-    // } else {
-    //     vec3 from = mix(vRayFrom, vRayTo, tbounds.x);
-    //     vec3 to = mix(vRayFrom, vRayTo, tbounds.y);
-    //     float rayStepLength = distance(from, to) * uStepSize;
-
-    //     float t = 0.0;
-    //     vec4 accumulator = vec4(0);
-
-    //     while (t < 1.0 && accumulator.a < 0.99) {
-    //         vec3 position = mix(from, to, t);
-    //         vec4 colorSample = sampleVolumeColor(position);
-    //         colorSample.a *= rayStepLength * uExtinction;
-    //         colorSample.rgb *= colorSample.a;
-    //         accumulator += (1.0 - accumulator.a) * colorSample;
-    //         t += uStepSize;
-    //     }
-
-    //     if (accumulator.a > 1.0) {
-    //         accumulator.rgb /= accumulator.a;
-    //     }
-
-    //     oColor = vec4(accumulator.rgb, 1);
-    // }
-
-
+    return vec4<f32>(accumulator.rgb, 1.0);
 }
 
 // #part /wgsl/shaders/renderers/EAM/integrate/vertex

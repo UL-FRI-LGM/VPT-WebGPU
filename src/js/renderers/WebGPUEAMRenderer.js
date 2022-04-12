@@ -34,21 +34,48 @@ constructor(device, volume, environmentTexture, options) {
 
     this._sceneBuffer = WebGPU.createBuffer(this._device, this._mvpInvMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
+    this._sampler = this._device.createSampler({
+        minFilter: "linear",
+        magFilter: "linear"
+    });
 
     this._sceneBindGroupLayout = this._device.createBindGroupLayout({
-        entries: [{
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX,
-            buffer: { type: "uniform" }
-        }]
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX,
+                buffer: { type: "uniform" }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: { type: "filtering" }
+            },
+            {
+                binding: 2,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "float", viewDimension: "3d" }
+            }
+        ]
     });
-    this._sceneBindGroup = this._device.createBindGroup({
-        layout: this._sceneBindGroupLayout,
-        entries: [{
-            binding: 0,
-            resource: { buffer: this._sceneBuffer }
-        }]
-    });
+    this._sceneBindGroup = null;
+    // this._sceneBindGroup = this._device.createBindGroup({
+    //     layout: this._sceneBindGroupLayout,
+    //     entries: [
+    //         {
+    //             binding: 0,
+    //             resource: { buffer: this._sceneBuffer }
+    //         },
+    //         {
+    //             binding: 1,
+    //             resource: this._sampler
+    //         },
+    //         {
+    //             binding: 2,
+    //             resource: this._volume
+    //         }
+    //     ]
+    // });
     this._scenePipeline = this._device.createRenderPipeline({
         layout: device.createPipelineLayout({
             bindGroupLayouts: [this._sceneBindGroupLayout]
@@ -139,8 +166,32 @@ _generateFrame() {
 
     // this._device.queue.writeBuffer(this._sceneBuffer, 0, this.pvmMat.m);
 
+    if (!this._volume.getTextureView()) { // TODO
+        return;
+    }
+
     this._mvpInvMat = this.calculateMVPInverseTranspose();
     this._device.queue.writeBuffer(this._sceneBuffer, 0, this._mvpInvMat.m);
+
+
+
+    this._sceneBindGroup = this._device.createBindGroup({
+        layout: this._sceneBindGroupLayout,
+        entries: [
+            {
+                binding: 0,
+                resource: { buffer: this._sceneBuffer }
+            },
+            {
+                binding: 1,
+                resource: this._sampler
+            },
+            {
+                binding: 2,
+                resource: this._volume.getTextureView()
+            }
+        ]
+    });
 
 
 
