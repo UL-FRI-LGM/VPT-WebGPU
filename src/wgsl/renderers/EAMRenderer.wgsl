@@ -7,9 +7,12 @@ struct VSOut {
 };
 
 struct UBO {
-    mvpInvMat: mat4x4<f32>
+    mvpInvMat: mat4x4<f32>,
+    stepSize: f32,
+    offset: f32,
+    extinction: f32
 };
-@group(0) @binding(0) var<uniform> uniforms: UBO;
+@group(0) @binding(0) var<uniform> ubo: UBO;
 
 
 @stage(vertex)
@@ -20,8 +23,8 @@ fn main(@location(0) inPos: vec2<f32>) -> VSOut {
     // TODO: Include unproject
     var nearPosition = vec4<f32>(inPos, -1.0, 1.0);
     var farPosition = vec4<f32>(inPos, 1.0, 1.0);
-    var fromDirty: vec4<f32> = uniforms.mvpInvMat * nearPosition;
-    var toDirty: vec4<f32> = uniforms.mvpInvMat * farPosition;
+    var fromDirty: vec4<f32> = ubo.mvpInvMat * nearPosition;
+    var toDirty: vec4<f32> = ubo.mvpInvMat * farPosition;
     vsOut.rayFrom = vec3<f32>(fromDirty.x, fromDirty.y, fromDirty.z) / fromDirty.w;
     vsOut.rayTo = vec3<f32>(toDirty.x, toDirty.y, toDirty.z) / toDirty.w;
 
@@ -30,6 +33,13 @@ fn main(@location(0) inPos: vec2<f32>) -> VSOut {
 
 // #part /wgsl/shaders/renderers/EAM/generate/fragment
 
+struct UBO {
+    mvpInvMat: mat4x4<f32>,
+    stepSize: f32,
+    offset: f32,
+    extinction: f32
+};
+@group(0) @binding(0) var<uniform> ubo: UBO;
 @group(0) @binding(1) var uSampler: sampler;
 @group(0) @binding(2) var uTexture: texture_3d<f32>;
 
@@ -71,11 +81,7 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @loca
     var from: vec3<f32> = mix(rayFrom, rayTo, tbounds.x);
     var to: vec3<f32> = mix(rayFrom, rayTo, tbounds.y);
 
-    // Uniforms
-    var uStepSize: f32 = 0.001; // TODO: uStepSize
-    var uExtinction: f32 = 1.0; // TODO: uExtinction
-
-    var rayStepLength: f32 = distance(from, to) * uStepSize;
+    var rayStepLength: f32 = distance(from, to) * ubo.stepSize;
 
     var t: f32 = 0.0;
     var accumulator = vec4<f32>(0.0);
@@ -83,10 +89,10 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @loca
     for (;t < 1.0 && accumulator.a < 0.99;) { // TODO: Use while loop
         var position: vec3<f32> = mix(from, to, t);
         var colorSample = sampleVolumeColor(position);
-        colorSample.a *= rayStepLength * uExtinction;
+        colorSample.a *= rayStepLength * ubo.extinction;
         colorSample = vec4<f32>(colorSample.rgb * colorSample.a, colorSample.a);
         accumulator += (1.0 - accumulator.a) * colorSample;
-        t += uStepSize;
+        t += ubo.stepSize;
     }
 
     if (accumulator.a > 1.0) {

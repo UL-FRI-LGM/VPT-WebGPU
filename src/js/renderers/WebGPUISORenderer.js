@@ -1,36 +1,26 @@
-// #part /js/renderers/WebGPUEAMRenderer
+// #part /js/renderers/WebGPUISORenderer
 
 // #link ../WebGPU
 // #link WebGPUAbstractRenderer
 
-class WebGPUEAMRenderer extends WebGPUAbstractRenderer {
+class WebGPUISORenderer extends WebGPUAbstractRenderer {
 
 constructor(device, volume, environmentTexture, options) {
     super(device, volume, environmentTexture, options);
 
     Object.assign(this, {
-        extinction : 100,
-        slices     : 64,
-        steps      : 64,
+        _stepSize : 0.05,
+        _isovalue : 0.4,
+        _light    : [0.5, 0.5, 0.5],
+        _diffuse  : [0.7, 0.8, 0.9]
     }, options);
 
-    //this._programs = WebGL.buildPrograms(this._gl, SHADERS.renderers.EAM, MIXINS);
-    
+    //this._programs = WebGL.buildPrograms(this._gl, SHADERS.renderers.ISO, MIXINS);
+
     this._mvpInvMat = new Matrix();
 
-    this._generateVSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.generate.vertex });
-    this._generateFSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.generate.fragment });
-
-
-    // let x = 0;
-    // let y = 0;
-    // let z = -1;
-    // let vertices = new Float32Array([
-    //     x-0.5, y-0.5, z, 1.0, 0.0, 0.0,
-    //     x+0.5, y-0.5, z, 0.0, 1.0, 0.0,
-    //     x,     y+0.5, z, 0.0, 0.0, 1.0
-    // ])
-    // this._vertexBuffer = WebGPU.createBuffer(this._device, vertices, GPUBufferUsage.VERTEX)
+    this._generateVSModule = this._device.createShaderModule({ code: WGSL.renderers.ISO.generate.vertex });
+    this._generateFSModule = this._device.createShaderModule({ code: WGSL.renderers.ISO.generate.fragment });
 
     //this._sceneBuffer = WebGPU.createBuffer(this._device, this._mvpInvMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
     this._sceneBuffer = this._device.createBuffer({
@@ -151,25 +141,19 @@ _generateFrame() {
     // gl.useProgram(program);
 
     // gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_3D, this._volume.getTexture());
+    // gl.bindTexture(gl.TEXTURE_2D, this._accumulationBuffer.getAttachments().color[0]);
     // gl.activeTexture(gl.TEXTURE1);
-    // gl.bindTexture(gl.TEXTURE_2D, this._transferFunction);
+    // gl.bindTexture(gl.TEXTURE_3D, this._volume.getTexture());
 
-    // gl.uniform1i(uniforms.uVolume, 0);
-    // gl.uniform1i(uniforms.uTransferFunction, 1);
-    // gl.uniform1f(uniforms.uStepSize, 1 / this.slices);
-    // gl.uniform1f(uniforms.uExtinction, this.extinction);
+    // gl.uniform1i(uniforms.uClosest, 0);
+    // gl.uniform1i(uniforms.uVolume, 1);
+    // gl.uniform1f(uniforms.uStepSize, this._stepSize);
     // gl.uniform1f(uniforms.uOffset, Math.random());
+    // gl.uniform1f(uniforms.uIsovalue, this._isovalue);
     // const mvpit = this.calculateMVPInverseTranspose();
     // gl.uniformMatrix4fv(uniforms.uMvpInverseMatrix, false, mvpit.m);
 
     // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-
-    
-    // this.pvmMat.multiply(this.viewMatrix, this.modelMatrix);
-    // this.pvmMat.multiply(this.projectionMatrix, this.pvmMat);
-
-    // this._device.queue.writeBuffer(this._sceneBuffer, 0, this.pvmMat.m);
 
     if (!this._volume.getTextureView()) { // TODO
         return;
@@ -178,9 +162,9 @@ _generateFrame() {
     this._mvpInvMat = this.calculateMVPInverseTranspose();
     this._device.queue.writeBuffer(this._sceneBuffer, 0, this._mvpInvMat.m);
     this._device.queue.writeBuffer(this._sceneBuffer, 64, new Float32Array([
-        1.0 / this.slices,
+        this._stepSize,
         0.0 * Math.random(),
-        this.extinction
+        this._isovalue
     ]));
 
 
@@ -216,6 +200,7 @@ _generateFrame() {
         }],
         depthStencilAttachment: {
             view: this._frameBufferDepthTex.createView(),
+            depthClearValue: 0,
             depthLoadValue: 1,
             depthStoreOp: "store",
             stencilLoadValue: 0,
@@ -256,8 +241,13 @@ _renderFrame() {
 
     // gl.activeTexture(gl.TEXTURE0);
     // gl.bindTexture(gl.TEXTURE_2D, this._accumulationBuffer.getAttachments().color[0]);
+    // gl.activeTexture(gl.TEXTURE1);
+    // gl.bindTexture(gl.TEXTURE_3D, this._volume.getTexture());
 
-    // gl.uniform1i(uniforms.uAccumulator, 0);
+    // gl.uniform1i(uniforms.uClosest, 0);
+    // gl.uniform1i(uniforms.uVolume, 1);
+    // gl.uniform3fv(uniforms.uLight, this._light);
+    // gl.uniform3fv(uniforms.uDiffuse, this._diffuse);
 
     // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 }
@@ -270,8 +260,8 @@ _getFrameBufferSpec() {
     //     min            : gl.NEAREST,
     //     mag            : gl.NEAREST,
     //     format         : gl.RGBA,
-    //     internalFormat : gl.RGBA,
-    //     type           : gl.UNSIGNED_BYTE
+    //     internalFormat : gl.RGBA16F,
+    //     type           : gl.FLOAT
     // }];
 
     return [{ // TODO: Should this return an array?
@@ -289,8 +279,8 @@ _getAccumulationBufferSpec() {
     //     min            : gl.NEAREST,
     //     mag            : gl.NEAREST,
     //     format         : gl.RGBA,
-    //     internalFormat : gl.RGBA,
-    //     type           : gl.UNSIGNED_BYTE
+    //     internalFormat : gl.RGBA16F,
+    //     type           : gl.FLOAT
     // }];
 
     return [{

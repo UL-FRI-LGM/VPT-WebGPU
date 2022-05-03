@@ -470,7 +470,12 @@ hasComputeCapabilities() {
 }
 
 _getRendererClass(renderer) {
+    switch (renderer) {
+        case 'iso': return WebGPUISORenderer;
+        case 'eam': return WebGPUEAMRenderer;
+    }
     return WebGPUEAMRenderer;
+    
     switch (renderer) {
         case 'mip' : return MIPRenderer;
         case 'iso' : return ISORenderer;
