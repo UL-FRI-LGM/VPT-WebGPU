@@ -201,9 +201,10 @@ _generateFrame() {
         depthStencilAttachment: {
             view: this._frameBufferDepthTex.createView(),
             depthClearValue: 0,
-            depthLoadValue: 1,
+            depthLoadOp: "clear",
             depthStoreOp: "store",
-            stencilLoadValue: 0,
+            stencilClearValue: 0,
+            stencilLoadOp: "clear",
             stencilStoreOp: "store"
         }
     });
