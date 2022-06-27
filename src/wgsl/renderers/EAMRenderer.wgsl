@@ -15,7 +15,7 @@ struct UBO {
 @group(0) @binding(0) var<uniform> ubo: UBO;
 
 
-@stage(vertex)
+@vertex
 fn main(@location(0) inPos: vec2<f32>) -> VSOut {
     var vsOut: VSOut;
     vsOut.position = vec4<f32>(inPos, 0.0, 1.0);
@@ -41,7 +41,8 @@ struct UBO {
 };
 @group(0) @binding(0) var<uniform> ubo: UBO;
 @group(0) @binding(1) var uSampler: sampler;
-@group(0) @binding(2) var uTexture: texture_3d<f32>;
+@group(0) @binding(2) var uVolume: texture_3d<f32>;
+@group(0) @binding(3) var uTransferFunction: texture_2d<f32>;
 
 // TODO: Link intersectCube
 fn intersectCube(origin: vec3<f32>, direction: vec3<f32>) -> vec2<f32> {
@@ -61,15 +62,19 @@ fn sampleVolumeColor(position: vec3<f32>) -> vec4<f32> {
     // TODO
     //return vec4<f32>(0.2, 0.4, 0.6, 1.0);
 
-    var sample: f32 = textureSample(uTexture, uSampler, position).r;
-    return vec4<f32>(sample, sample, sample, 1.0);
+    // var sample: f32 = textureSample(uVolume, uSampler, position).r;
+    // return vec4<f32>(sample, sample, sample, 1.0);
+
+    var volumeSample: vec2<f32> = textureSample(uVolume, uSampler, position).rg;
+    var transferSample: vec4<f32> = textureSample(uTransferFunction, uSampler, volumeSample);
+    return transferSample;
 
     // vec2 volumeSample = texture(uVolume, position).rg;
     // vec4 transferSample = texture(uTransferFunction, volumeSample);
     // return transferSample;
 }
 
-@stage(fragment)
+@fragment
 fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @location(0) vec4<f32> {
     var rayDirection: vec3<f32> = rayTo - rayFrom;
     var tbounds: vec2<f32> = max(intersectCube(rayFrom, rayDirection), vec2<f32>(0.0));

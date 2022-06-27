@@ -60,6 +60,11 @@ constructor(device, volume, environmentTexture, options) {
                 binding: 2,
                 visibility: GPUShaderStage.FRAGMENT,
                 texture: { sampleType: "float", viewDimension: "3d" }
+            },
+            {
+                binding: 3,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "float", viewDimension: "2d" }
             }
         ]
     });
@@ -199,6 +204,10 @@ _generateFrame() {
             {
                 binding: 2,
                 resource: this._volume.getTextureView()
+            },
+            {
+                binding: 3,
+                resource: this._transferFunctionTexture.createView()
             }
         ]
     });

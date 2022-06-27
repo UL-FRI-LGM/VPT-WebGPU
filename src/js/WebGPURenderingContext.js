@@ -91,6 +91,7 @@ async _initWebGPU(onInit) {
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
     
+    // TODO: Cleanup
     let ce = this._device.createCommandEncoder({});
     ce.copyBufferToTexture({ buffer: tempTexBuffer, bytesPerRow: 256 * 4 }, {texture: this._tempTex}, { width: 256, height: 256});
     this._device.queue.submit([ce.finish()]);
@@ -448,6 +449,21 @@ getResolution() {
 setResolution(resolution) {
     if (this._renderer) {
         this._renderer.setResolution(resolution);
+
+        // TODO: Delete old bind group (memory leak?)
+        this._quadBindGroup = this._device.createBindGroup({
+            layout: this._quadBindGroupLayout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: this._sampler
+                },
+                {
+                    binding: 1,
+                    resource: this._renderer.getTexture().createView()
+                }
+            ]
+        });
     }
     if (this._toneMapper) {
         this._toneMapper.setResolution(resolution);

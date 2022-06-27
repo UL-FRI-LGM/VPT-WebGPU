@@ -5,7 +5,7 @@ struct VSOut {
     @location(0) fragUV: vec2<f32>
 };
 
-@stage(vertex)
+@vertex
 fn main(@location(0) inPos: vec2<f32>) -> VSOut {
     var vsOut: VSOut;
     vsOut.position = vec4<f32>(inPos, 0.0, 1.0);
@@ -18,7 +18,7 @@ fn main(@location(0) inPos: vec2<f32>) -> VSOut {
 @group(0) @binding(0) var uSampler: sampler;
 @group(0) @binding(1) var uTexture: texture_2d<f32>;
 
-@stage(fragment)
+@fragment
 fn main(@location(0) fragUV: vec2<f32>) -> @location(0) vec4<f32> {
     return textureSample(uTexture, uSampler, fragUV);
     //return vec4<f32>(fragUV.x, fragUV.y, 0.0, 1.0);

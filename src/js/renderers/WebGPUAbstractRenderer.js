@@ -28,6 +28,44 @@ constructor(device, volume, environmentTexture, options) {
     //     mag    : gl.LINEAR
     // });
 
+    this._transferFunctionTexture = this._device.createTexture({
+        size: [64, 64, 1], // TODO: 2x1 not working for data transfer
+        format: "rgba8unorm", // TODO
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
+               // GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+
+    // TODO: Cleanup
+    let tempTexData = new Uint8Array(64 * 64 * 4);
+    for (let i = 0; i < 64 * 64; ++i) {
+        // if (i % 64 < 32) {
+        //     tempTexData[4*i] = 255;
+        //     tempTexData[4*i+1] = 0;
+        //     tempTexData[4*i+2] = 0;
+        //     tempTexData[4*i+3] = 0;
+        // } else {
+            tempTexData[4*i] = 255;
+            tempTexData[4*i+1] = 0;
+            tempTexData[4*i+2] = 0;
+            tempTexData[4*i+3] = 255;
+        // }
+    }
+    let tempTexBuffer = this._device.createBuffer({
+        size: ((tempTexData.byteLength + 3) & ~3),
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
+    tempTexBuffer.unmap();
+    let ce = this._device.createCommandEncoder({});
+    ce.copyBufferToTexture(
+        {buffer: tempTexBuffer, bytesPerRow: 64 * 4 },
+        {texture: this._transferFunctionTexture},
+        {width: 64, height: 64});
+    this._device.queue.submit([ce.finish()]);
+
+
+
     this.modelMatrix = new Matrix();
     this.viewMatrix = new Matrix();
     this.projectionMatrix = new Matrix();
@@ -48,6 +86,8 @@ destroy() {
     // gl.deleteTexture(this._transferFunction);
     // gl.deleteBuffer(this._clipQuad);
     // gl.deleteProgram(this._clipQuadProgram.program);
+
+    this._transferFunctionTexture.destroy();
 }
 
 render() {
@@ -98,39 +138,77 @@ _rebuildBuffers() {
     // this._accumulationBuffer = new DoubleBuffer(gl, this._getAccumulationBufferSpec());
     // this._renderBuffer = new SingleBuffer(gl, this._getRenderBufferSpec());
 
-    if (!this._frameBufferTex) {
-        let spec = this._getFrameBufferSpec()[0];
-        this._frameBufferTex = this._device.createTexture({
-            size: [spec.width, spec.height, 1],
-            format: spec.format,
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
-        });
-
-        this._frameBufferDepthTex = this._device.createTexture({
-            size: [spec.width, spec.height, 1],
-            format: "depth24plus-stencil8",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT // | GPUTextureUsage.COPY_SRC
-        });
-
-
-        let tempTexData = new Uint8Array(256 * 256 * 4)
-        for (let i = 0; i < 256 * 256; ++i) {
-            tempTexData[4*i] = 255
-            tempTexData[4*i+1] = 0
-            tempTexData[4*i+2] = 255
-            tempTexData[4*i+3] = 255
-        }
-        let tempTexBuffer = this._device.createBuffer({
-            size: ((tempTexData.byteLength + 3) & ~3),
-            usage: GPUBufferUsage.COPY_SRC,
-            mappedAtCreation: true
-        });
-        new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
-        tempTexBuffer.unmap();
-        let ce = this._device.createCommandEncoder({});
-        ce.copyBufferToTexture({ buffer: tempTexBuffer, bytesPerRow: 256 * 4 }, {texture: this._frameBufferTex}, { width: 256, height: 256});
-        this._device.queue.submit([ce.finish()]);
+    if (this._frameBufferTex) {
+        this._frameBufferTex.destroy();
+        this._frameBufferDepthTex.destroy();
     }
+
+    let fbSpec = this._getFrameBufferSpec()[0];
+    this._frameBufferTex = this._device.createTexture({
+        size: [fbSpec.width, fbSpec.height, 1],
+        format: fbSpec.format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
+    });
+
+    this._frameBufferDepthTex = this._device.createTexture({
+        size: [fbSpec.width, fbSpec.height, 1],
+        format: "depth24plus-stencil8",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT // | GPUTextureUsage.COPY_SRC
+    });
+
+
+    let tempTexData = new Uint8Array(256 * 256 * 4)
+    for (let i = 0; i < 256 * 256; ++i) {
+        tempTexData[4*i] = 255
+        tempTexData[4*i+1] = 0
+        tempTexData[4*i+2] = 255
+        tempTexData[4*i+3] = 255
+    }
+    let tempTexBuffer = this._device.createBuffer({
+        size: ((tempTexData.byteLength + 3) & ~3),
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true
+    });
+    new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
+    tempTexBuffer.unmap();
+    let ce = this._device.createCommandEncoder({});
+    ce.copyBufferToTexture({ buffer: tempTexBuffer, bytesPerRow: 256 * 4 }, {texture: this._frameBufferTex}, { width: 256, height: 256});
+    this._device.queue.submit([ce.finish()]);
+
+
+    // if (!this._frameBufferTex) {
+    //     let spec = this._getFrameBufferSpec()[0];
+    //     this._frameBufferTex = this._device.createTexture({
+    //         size: [spec.width, spec.height, 1],
+    //         format: spec.format,
+    //         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
+    //     });
+
+    //     this._frameBufferDepthTex = this._device.createTexture({
+    //         size: [spec.width, spec.height, 1],
+    //         format: "depth24plus-stencil8",
+    //         usage: GPUTextureUsage.RENDER_ATTACHMENT // | GPUTextureUsage.COPY_SRC
+    //     });
+
+
+    //     let tempTexData = new Uint8Array(256 * 256 * 4)
+    //     for (let i = 0; i < 256 * 256; ++i) {
+    //         tempTexData[4*i] = 255
+    //         tempTexData[4*i+1] = 0
+    //         tempTexData[4*i+2] = 255
+    //         tempTexData[4*i+3] = 255
+    //     }
+    //     let tempTexBuffer = this._device.createBuffer({
+    //         size: ((tempTexData.byteLength + 3) & ~3),
+    //         usage: GPUBufferUsage.COPY_SRC,
+    //         mappedAtCreation: true
+    //     });
+    //     new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
+    //     tempTexBuffer.unmap();
+    //     let ce = this._device.createCommandEncoder({});
+    //     ce.copyBufferToTexture({ buffer: tempTexBuffer, bytesPerRow: 256 * 4 }, {texture: this._frameBufferTex}, { width: 256, height: 256});
+    //     this._device.queue.submit([ce.finish()]);
+    // }
 }
 
 setVolume(volume) {
@@ -144,6 +222,15 @@ setTransferFunction(transferFunction) {
     // gl.texImage2D(gl.TEXTURE_2D, 0,
     //     gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, transferFunction);
     // gl.bindTexture(gl.TEXTURE_2D, null);
+
+    if (this._transferFunctionTexture) {
+        this._transferFunctionTexture.destroy();
+    }
+    this._transferFunctionTexture = WebGPU.webGPUTextureFromImageBitmapOrCanvas(
+        this._device,
+        transferFunction,
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
+    );
 }
 
 setResolution(resolution) {
@@ -164,6 +251,7 @@ calculateMVPInverseTranspose() {
 getTexture() {
     // return this._renderBuffer.getAttachments().color[0];
     return this._frameBufferTex;
+    // return this._transferFunctionTexture;
 }
 
 _resetFrame() {

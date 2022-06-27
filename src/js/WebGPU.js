@@ -143,4 +143,21 @@ static createClipQuad(device) {
     );
 }
 
+// https://toji.github.io/webgpu-best-practices/img-textures.html
+static webGPUTextureFromImageBitmapOrCanvas(gpuDevice, source, usage) {
+    const textureDescriptor = {
+        // Unlike in WebGL, the size of our texture must be set at texture creation time.
+        // This means we have to wait until the image is loaded to create the texture, since we won't
+        // know the size until then.
+        size: { width: source.width, height: source.height },
+        format: 'rgba8unorm',
+        usage: usage
+    };
+    const texture = gpuDevice.createTexture(textureDescriptor);
+  
+    gpuDevice.queue.copyExternalImageToTexture({ source }, { texture }, textureDescriptor.size);
+  
+    return texture;
+}
+
 }
