@@ -184,7 +184,7 @@ _generateFrame() {
     this._device.queue.writeBuffer(this._sceneBuffer, 0, this._mvpInvMat.m);
     this._device.queue.writeBuffer(this._sceneBuffer, 64, new Float32Array([
         1.0 / this.slices,
-        0.0 * Math.random(),
+        Math.random(),
         this.extinction
     ]));
 
