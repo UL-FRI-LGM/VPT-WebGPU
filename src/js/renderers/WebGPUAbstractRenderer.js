@@ -28,41 +28,21 @@ constructor(device, volume, environmentTexture, options) {
     //     mag    : gl.LINEAR
     // });
 
-    this._transferFunctionTexture = this._device.createTexture({
-        size: [64, 64, 1], // TODO: 2x1 not working for data transfer
+
+    const texDesc = {
+        size: { width: 2, height: 1 },
         format: "rgba8unorm", // TODO
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
                // GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
-    });
+    };
+    this._transferFunctionTexture = this._device.createTexture(texDesc);
 
     // TODO: Cleanup
-    let tempTexData = new Uint8Array(64 * 64 * 4);
-    for (let i = 0; i < 64 * 64; ++i) {
-        // if (i % 64 < 32) {
-        //     tempTexData[4*i] = 255;
-        //     tempTexData[4*i+1] = 0;
-        //     tempTexData[4*i+2] = 0;
-        //     tempTexData[4*i+3] = 0;
-        // } else {
-            tempTexData[4*i] = 255;
-            tempTexData[4*i+1] = 0;
-            tempTexData[4*i+2] = 0;
-            tempTexData[4*i+3] = 255;
-        // }
-    }
-    let tempTexBuffer = this._device.createBuffer({
-        size: ((tempTexData.byteLength + 3) & ~3),
-        usage: GPUBufferUsage.COPY_SRC,
-        mappedAtCreation: true
+    let tempTexData = new Uint8ClampedArray([255, 0, 0, 0, 255, 0, 0, 255]);
+    let imageData = new ImageData(tempTexData, texDesc.size.width, texDesc.size.height);
+    createImageBitmap(imageData).then((imageBitmap) => {
+        this._device.queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: this._transferFunctionTexture }, texDesc.size);
     });
-    new Uint8Array(tempTexBuffer.getMappedRange()).set(tempTexData);
-    tempTexBuffer.unmap();
-    let ce = this._device.createCommandEncoder({});
-    ce.copyBufferToTexture(
-        {buffer: tempTexBuffer, bytesPerRow: 64 * 4 },
-        {texture: this._transferFunctionTexture},
-        {width: 64, height: 64});
-    this._device.queue.submit([ce.finish()]);
 
 
 
