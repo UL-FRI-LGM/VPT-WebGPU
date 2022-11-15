@@ -69,8 +69,8 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>, @locatio
         return vec4<f32>(-1.0);
     }
 
-    var from: vec4<f32> = vec4<f32>(mix(rayFrom, rayTo, tbounds.x), tbounds.x);
-    var to: vec4<f32> = vec4<f32>(mix(rayFrom, rayTo, tbounds.y), tbounds.y);
+    var fromVal: vec4<f32> = vec4<f32>(mix(rayFrom, rayTo, tbounds.x), tbounds.x);
+    var toVal: vec4<f32> = vec4<f32>(mix(rayFrom, rayTo, tbounds.y), tbounds.y);
 
     var closest: f32 = -1.0; // textureSample(uClosest, uSampler, vPosition).w
     if (closest > 0.0) {
@@ -84,10 +84,10 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>, @locatio
     var found: bool = false;
 
     for (;t < 1.0;) { // TODO: Use while loop
-        pos = mix(from.xyz, to.xyz, offset);
+        pos = mix(fromVal.xyz, toVal.xyz, offset);
         value = textureSample(uTexture, uSampler, pos).r;
         if (value >= ubo.isovalue) {
-            tbounds.y = mix(from.w, to.w, offset);
+            tbounds.y = mix(fromVal.w, toVal.w, offset);
             to = vec4<f32>(mix(rayFrom, rayTo, tbounds.y), tbounds.y);
             found = true;
         }

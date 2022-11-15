@@ -21,6 +21,15 @@ constructor(device, volume, environmentTexture, options) {
     this._generateVSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.generate.vertex });
     this._generateFSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.generate.fragment });
 
+    this._resetVSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.reset.vertex });
+    this._resetFSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.reset.fragment });
+
+    this._renderVSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.render.vertex });
+    this._renderFSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.render.fragment });
+
+    this._integrateVSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.integrate.vertex });
+    this._integrateFSModule = this._device.createShaderModule({ code: WGSL.renderers.EAM.integrate.fragment });
+
 
     // let x = 0;
     // let y = 0;
@@ -32,8 +41,8 @@ constructor(device, volume, environmentTexture, options) {
     // ])
     // this._vertexBuffer = WebGPU.createBuffer(this._device, vertices, GPUBufferUsage.VERTEX)
 
-    //this._sceneBuffer = WebGPU.createBuffer(this._device, this._mvpInvMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
-    this._sceneBuffer = this._device.createBuffer({
+    //this._generateBuffer = WebGPU.createBuffer(this._device, this._mvpInvMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+    this._generateBuffer = this._device.createBuffer({
         size: 76,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         mappedAtCreation: false
@@ -44,7 +53,7 @@ constructor(device, volume, environmentTexture, options) {
         magFilter: "linear"
     });
 
-    this._sceneBindGroupLayout = this._device.createBindGroupLayout({
+    this._generateBindGroupLayout = this._device.createBindGroupLayout({
         entries: [
             {
                 binding: 0,
@@ -68,27 +77,9 @@ constructor(device, volume, environmentTexture, options) {
             }
         ]
     });
-    this._sceneBindGroup = null;
-    // this._sceneBindGroup = this._device.createBindGroup({
-    //     layout: this._sceneBindGroupLayout,
-    //     entries: [
-    //         {
-    //             binding: 0,
-    //             resource: { buffer: this._sceneBuffer }
-    //         },
-    //         {
-    //             binding: 1,
-    //             resource: this._sampler
-    //         },
-    //         {
-    //             binding: 2,
-    //             resource: this._volume
-    //         }
-    //     ]
-    // });
-    this._scenePipeline = this._device.createRenderPipeline({
+    this._generatePipeline = this._device.createRenderPipeline({
         layout: this._device.createPipelineLayout({
-            bindGroupLayouts: [this._sceneBindGroupLayout]
+            bindGroupLayouts: [this._generateBindGroupLayout]
         }),
         // Vertex shader
         vertex: {
@@ -122,12 +113,167 @@ constructor(device, volume, environmentTexture, options) {
             cullMode: "none",
             topology: "triangle-list"
         },
-        // Depth test
-        depthStencil: {
-            depthWriteEnabled: true,
-            depthCompare: "less",
-            format: "depth24plus-stencil8"
-        }
+        // // Depth test
+        // depthStencil: {
+        //     depthWriteEnabled: true,
+        //     depthCompare: "less",
+        //     format: "depth24plus-stencil8"
+        // }
+    });
+
+
+
+
+    this._integrateBindGroupLayout = this._device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: { type: "filtering" }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "float", viewDimension: "2d" }
+            },
+            {
+                binding: 2,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "float", viewDimension: "2d" }
+            }
+        ]
+    });
+    this._integratePipeline = this._device.createRenderPipeline({
+        layout: this._device.createPipelineLayout({
+            bindGroupLayouts: [this._integrateBindGroupLayout]
+        }),
+        // Vertex shader
+        vertex: {
+            module: this._integrateVSModule,
+            entryPoint: "main",
+            buffers: [
+                { // vertexBuffer
+                    attributes: [
+                        { // Position
+                            shaderLocation: 0, // [[location(0)]]
+                            offset: 0,
+                            format: "float32x2"
+                        }
+                    ],
+                    arrayStride: 4 * 2, // sizeof(float) * 2
+                    stepMode: "vertex"
+                }
+            ]
+        },
+        // Fragment shader
+        fragment: {
+            module: this._integrateFSModule,
+            entryPoint: "main",
+            targets: [{
+                format: "rgba8unorm"
+            }],
+        },
+        // Rasterization
+        primitive: {
+            frontFace: "ccw",
+            cullMode: "none",
+            topology: "triangle-list"
+        },
+    });
+
+
+
+
+
+    this._renderBindGroupLayout = this._device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: { type: "filtering" }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "float", viewDimension: "2d" }
+            }
+        ]
+    });
+    this._renderPipeline = this._device.createRenderPipeline({
+        layout: this._device.createPipelineLayout({
+            bindGroupLayouts: [this._renderBindGroupLayout]
+        }),
+        // Vertex shader
+        vertex: {
+            module: this._renderVSModule,
+            entryPoint: "main",
+            buffers: [
+                { // vertexBuffer
+                    attributes: [
+                        { // Position
+                            shaderLocation: 0, // [[location(0)]]
+                            offset: 0,
+                            format: "float32x2"
+                        }
+                    ],
+                    arrayStride: 4 * 2, // sizeof(float) * 2
+                    stepMode: "vertex"
+                }
+            ]
+        },
+        // Fragment shader
+        fragment: {
+            module: this._renderFSModule,
+            entryPoint: "main",
+            targets: [{
+                format: "rgba8unorm"
+            }],
+        },
+        // Rasterization
+        primitive: {
+            frontFace: "ccw",
+            cullMode: "none",
+            topology: "triangle-list"
+        },
+    });
+
+
+
+
+    this._resetPipeline = this._device.createRenderPipeline({
+        layout: "auto",
+        // Vertex shader
+        vertex: {
+            module: this._resetVSModule,
+            entryPoint: "main",
+            buffers: [
+                { // vertexBuffer
+                    attributes: [
+                        { // Position
+                            shaderLocation: 0, // [[location(0)]]
+                            offset: 0,
+                            format: "float32x2"
+                        }
+                    ],
+                    arrayStride: 4 * 2, // sizeof(float) * 2
+                    stepMode: "vertex"
+                }
+            ]
+        },
+        // Fragment shader
+        fragment: {
+            module: this._resetFSModule,
+            entryPoint: "main",
+            targets: [{
+                format: "rgba8unorm"
+            }],
+        },
+        // Rasterization
+        primitive: {
+            frontFace: "ccw",
+            cullMode: "none",
+            topology: "triangle-list"
+        },
     });
 }
 
@@ -141,12 +287,22 @@ destroy() {
 }
 
 _resetFrame() {
-    // const gl = this._gl;
+    const commandEncoder = this._device.createCommandEncoder();
 
-    // const { program, uniforms } = this._programs.reset;
-    // gl.useProgram(program);
+    const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [{
+            view: this._accumulationBuffer.getWriteAttachments().color[0].createView(),
+            loadOp: "clear",
+            clearValue: [0, 0, 0, 1],
+            storeOp: "store"
+        }]
+    });
+    renderPass.setPipeline(this._resetPipeline);
+    renderPass.setVertexBuffer(0, this._clipQuad);
+    renderPass.draw(6, 1, 0, 0);
+    renderPass.end();
 
-    // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    this._device.queue.submit([commandEncoder.finish()]);
 }
 
 _generateFrame() {
@@ -174,15 +330,15 @@ _generateFrame() {
     // this.pvmMat.multiply(this.viewMatrix, this.modelMatrix);
     // this.pvmMat.multiply(this.projectionMatrix, this.pvmMat);
 
-    // this._device.queue.writeBuffer(this._sceneBuffer, 0, this.pvmMat.m);
+    // this._device.queue.writeBuffer(this._generateBuffer, 0, this.pvmMat.m);
 
     if (!this._volume.getTextureView()) { // TODO
         return;
     }
 
     this._mvpInvMat = this.calculateMVPInverseTranspose();
-    this._device.queue.writeBuffer(this._sceneBuffer, 0, this._mvpInvMat.m);
-    this._device.queue.writeBuffer(this._sceneBuffer, 64, new Float32Array([
+    this._device.queue.writeBuffer(this._generateBuffer, 0, this._mvpInvMat.m);
+    this._device.queue.writeBuffer(this._generateBuffer, 64, new Float32Array([
         1.0 / this.slices,
         Math.random(),
         this.extinction
@@ -190,12 +346,12 @@ _generateFrame() {
 
 
 
-    this._sceneBindGroup = this._device.createBindGroup({
-        layout: this._sceneBindGroupLayout,
+    this._generateBindGroup = this._device.createBindGroup({
+        layout: this._generateBindGroupLayout,
         entries: [
             {
                 binding: 0,
-                resource: { buffer: this._sceneBuffer }
+                resource: { buffer: this._generateBuffer }
             },
             {
                 binding: 1,
@@ -218,24 +374,24 @@ _generateFrame() {
 
     const renderPass = commandEncoder.beginRenderPass({
         colorAttachments: [{
-            view: this._frameBufferTex.createView(),
+            view: this._frameBuffer.getAttachments().color[0].createView(),
             loadOp: "clear",
             clearValue: [0, 0, 0, 1],
             storeOp: "store"
         }],
-        depthStencilAttachment: {
-            view: this._frameBufferDepthTex.createView(),
-            depthClearValue: 1,
-            depthLoadOp: "clear",
-            depthStoreOp: "store",
-            stencilClearValue: 0,
-            stencilLoadOp: "clear",
-            stencilStoreOp: "store"
-        }
+        // depthStencilAttachment: {
+        //     view: this._frameBufferDepthTex.createView(),
+        //     depthClearValue: 1,
+        //     depthLoadOp: "clear",
+        //     depthStoreOp: "store",
+        //     stencilClearValue: 0,
+        //     stencilLoadOp: "clear",
+        //     stencilStoreOp: "store"
+        // }
     });
-    renderPass.setPipeline(this._scenePipeline);
+    renderPass.setPipeline(this._generatePipeline);
     renderPass.setVertexBuffer(0, this._clipQuad);
-    renderPass.setBindGroup(0, this._sceneBindGroup);
+    renderPass.setBindGroup(0, this._generateBindGroup);
     renderPass.draw(6, 1, 0, 0);
     renderPass.end();
 
@@ -257,6 +413,44 @@ _integrateFrame() {
     // gl.uniform1i(uniforms.uFrame, 1);
 
     // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+
+    this._integrateBindGroup = this._device.createBindGroup({
+        layout: this._integrateBindGroupLayout,
+        entries: [
+            {
+                binding: 0,
+                resource: this._sampler
+            },
+            {
+                binding: 1,
+                resource: this._accumulationBuffer.getReadAttachments().color[0].createView()
+            },
+            {
+                binding: 2,
+                resource: this._frameBuffer.getAttachments().color[0].createView()
+            }
+        ]
+    });
+
+
+    const commandEncoder = this._device.createCommandEncoder();
+
+    const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [{
+            view: this._accumulationBuffer.getWriteAttachments().color[0].createView(),
+            loadOp: "clear",
+            clearValue: [0, 0, 0, 1],
+            storeOp: "store"
+        }]
+    });
+    renderPass.setPipeline(this._integratePipeline);
+    renderPass.setVertexBuffer(0, this._clipQuad);
+    renderPass.setBindGroup(0, this._integrateBindGroup);
+    renderPass.draw(6, 1, 0, 0);
+    renderPass.end();
+
+    this._device.queue.submit([commandEncoder.finish()]);
 }
 
 _renderFrame() {
@@ -271,6 +465,39 @@ _renderFrame() {
     // gl.uniform1i(uniforms.uAccumulator, 0);
 
     // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+    this._renderBindGroup = this._device.createBindGroup({
+        layout: this._renderBindGroupLayout,
+        entries: [
+            {
+                binding: 0,
+                resource: this._sampler
+            },
+            {
+                binding: 1,
+                resource: this._accumulationBuffer.getReadAttachments().color[0].createView()
+            }
+        ]
+    });
+
+
+    const commandEncoder = this._device.createCommandEncoder();
+
+    const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [{
+            view: this._renderBuffer.getAttachments().color[0].createView(),
+            loadOp: "clear",
+            clearValue: [0, 0, 0, 1],
+            storeOp: "store"
+        }]
+    });
+    renderPass.setPipeline(this._renderPipeline);
+    renderPass.setVertexBuffer(0, this._clipQuad);
+    renderPass.setBindGroup(0, this._renderBindGroup);
+    renderPass.draw(6, 1, 0, 0);
+    renderPass.end();
+
+    this._device.queue.submit([commandEncoder.finish()]);
 }
 
 _getFrameBufferSpec() {
@@ -286,9 +513,11 @@ _getFrameBufferSpec() {
     // }];
 
     return [{ // TODO: Should this return an array?
-        width:  this._bufferSize,
-        height: this._bufferSize,
-        format: "rgba8unorm"
+        width:  this._bufferSize, // TODO: Remove
+        height: this._bufferSize, // TODO: Remove
+        size: [this._bufferSize, this._bufferSize, 1],
+        format: "rgba8unorm",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC // TODO: Remove DST
     }];
 }
 
@@ -305,8 +534,11 @@ _getAccumulationBufferSpec() {
     // }];
 
     return [{
-        width          : this._bufferSize,
-        height         : this._bufferSize,
+        width          : this._bufferSize, // TODO: Remove
+        height         : this._bufferSize, // TODO: Remove
+        size: [this._bufferSize, this._bufferSize, 1],
+        format: "rgba8unorm",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
     }];
 }
 

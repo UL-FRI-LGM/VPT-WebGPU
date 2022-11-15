@@ -83,16 +83,16 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @loca
         return vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
     
-    var from: vec3<f32> = mix(rayFrom, rayTo, tbounds.x);
-    var to: vec3<f32> = mix(rayFrom, rayTo, tbounds.y);
+    var fromVal: vec3<f32> = mix(rayFrom, rayTo, tbounds.x);
+    var toVal: vec3<f32> = mix(rayFrom, rayTo, tbounds.y);
 
-    var rayStepLength: f32 = distance(from, to) * ubo.stepSize;
+    var rayStepLength: f32 = distance(fromVal, toVal) * ubo.stepSize;
 
     var t: f32 = 0.0;
     var accumulator = vec4<f32>(0.0);
 
     for (;t < 1.0 && accumulator.a < 0.99;) { // TODO: Use while loop
-        var position: vec3<f32> = mix(from, to, t);
+        var position: vec3<f32> = mix(fromVal, toVal, t);
         var colorSample = sampleVolumeColor(position);
         colorSample.a *= rayStepLength * ubo.extinction;
         colorSample = vec4<f32>(colorSample.rgb * colorSample.a, colorSample.a);
@@ -109,74 +109,72 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @loca
 
 // #part /wgsl/shaders/renderers/EAM/integrate/vertex
 
-#version 300 es
+struct VSOut {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>
+};
 
-layout(location = 0) in vec2 aPosition;
-out vec2 vPosition;
-
-void main() {
-    vPosition = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition, 0, 1);
+@vertex
+fn main(@location(0) inPos: vec2<f32>) -> VSOut {
+    var vsOut: VSOut;
+    vsOut.position = vec4<f32>(inPos, 0.0, 1.0);
+    vsOut.uv = (inPos + vec2<f32>(1.0, -1.0)) * vec2<f32>(0.5, -0.5);
+    return vsOut;
 }
 
 // #part /wgsl/shaders/renderers/EAM/integrate/fragment
 
-#version 300 es
-precision mediump float;
+@group(0) @binding(0) var uSampler: sampler;
+@group(0) @binding(1) var uAccumulator: texture_2d<f32>;
+@group(0) @binding(2) var uFrame: texture_2d<f32>;
 
-uniform mediump sampler2D uAccumulator;
-uniform mediump sampler2D uFrame;
-
-in vec2 vPosition;
-out vec4 oColor;
-
-void main() {
-    oColor = texture(uFrame, vPosition);
+@fragment
+fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    return textureSample(uFrame, uSampler, uv);
+    //return textureSample(uFrame, uSampler, uv) * 0.01 + textureSample(uAccumulator, uSampler, uv);
 }
 
 // #part /wgsl/shaders/renderers/EAM/render/vertex
 
-#version 300 es
+struct VSOut {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>
+};
 
-layout(location = 0) in vec2 aPosition;
-out vec2 vPosition;
-
-void main() {
-    vPosition = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition, 0, 1);
+@vertex
+fn main(@location(0) inPos: vec2<f32>) -> VSOut {
+    var vsOut: VSOut;
+    vsOut.position = vec4<f32>(inPos, 0.0, 1.0);
+    vsOut.uv = (inPos + vec2<f32>(1.0, -1.0)) * vec2<f32>(0.5, -0.5);
+    return vsOut;
 }
 
 // #part /wgsl/shaders/renderers/EAM/render/fragment
 
-#version 300 es
-precision mediump float;
+@group(0) @binding(0) var uSampler: sampler;
+@group(0) @binding(1) var uAccumulator: texture_2d<f32>;
 
-uniform mediump sampler2D uAccumulator;
-
-in vec2 vPosition;
-out vec4 oColor;
-
-void main() {
-    oColor = texture(uAccumulator, vPosition);
+@fragment
+fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    return textureSample(uAccumulator, uSampler, uv);
 }
 
 // #part /wgsl/shaders/renderers/EAM/reset/vertex
 
-#version 300 es
+struct VSOut {
+    @builtin(position) position: vec4<f32>
+};
 
-layout(location = 0) in vec2 aPosition;
-
-void main() {
-    gl_Position = vec4(aPosition, 0, 1);
+@vertex
+fn main(@location(0) inPos: vec2<f32>) -> VSOut {
+    var vsOut: VSOut;
+    vsOut.position = vec4<f32>(inPos, 0.0, 1.0);
+    return vsOut;
 }
 
 // #part /wgsl/shaders/renderers/EAM/reset/fragment
 
-#version 300 es
-precision mediump float;
-
-out vec4 oColor;
-
-void main() {
-    oColor = vec4(0, 0, 0, 1);
+@fragment
+fn main() -> @location(0) vec4<f32> {
+    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 }
