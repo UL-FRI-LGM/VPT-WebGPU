@@ -53,7 +53,7 @@ async _initWebGPU(onInit) {
     this._adapter = await window.navigator.gpu.requestAdapter();
     this._device = await this._adapter.requestDevice();
     this._context = this._canvas.getContext("webgpu");
-    this._presentationFormat = this._context.getPreferredFormat(this._adapter);
+    this._presentationFormat = window.navigator.gpu.getPreferredCanvasFormat();
     this._context.configure({
         device: this._device,
         format: this._presentationFormat,

@@ -43,7 +43,7 @@ constructor(device, volume, environmentTexture, options) {
 
     //this._generateBuffer = WebGPU.createBuffer(this._device, this._mvpInvMat.m, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
     this._generateBuffer = this._device.createBuffer({
-        size: 76,
+        size: 80,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         mappedAtCreation: false
     });

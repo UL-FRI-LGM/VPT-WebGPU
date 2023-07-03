@@ -33,6 +33,8 @@ fn main(@location(0) inPos: vec2<f32>) -> VSOut {
 
 // #part /wgsl/shaders/renderers/EAM/generate/fragment
 
+diagnostic(off,derivative_uniformity);
+
 struct UBO {
     mvpInvMat: mat4x4<f32>,
     stepSize: f32,
@@ -60,7 +62,7 @@ fn intersectCube(origin: vec3<f32>, direction: vec3<f32>) -> vec2<f32> {
 
 fn sampleVolumeColor(position: vec3<f32>) -> vec4<f32> {
     // TODO
-    //return vec4<f32>(0.2, 0.4, 0.6, 1.0);
+    return vec4<f32>(0.2, 0.4, 0.6, 1.0);
 
     // var sample: f32 = textureSample(uVolume, uSampler, position).r;
     // return vec4<f32>(sample, sample, sample, 1.0);
@@ -91,7 +93,8 @@ fn main(@location(0) rayFrom: vec3<f32>, @location(1) rayTo: vec3<f32>) -> @loca
     var t: f32 = 0.0;
     var accumulator = vec4<f32>(0.0);
 
-    for (;t < 1.0 && accumulator.a < 0.99;) { // TODO: Use while loop
+    // for (;t < 1.0 && accumulator.a < 0.99;) { // TODO: Use while loop
+    for (;t < 1.0;) {
         var position: vec3<f32> = mix(fromVal, toVal, t);
         var colorSample = sampleVolumeColor(position);
         colorSample.a *= rayStepLength * ubo.extinction;
