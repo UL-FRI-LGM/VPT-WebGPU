@@ -8,7 +8,8 @@ export class Midlayer extends EventTarget {
     constructor () {
         super();
 
-        this._handleLoadFile = this._handleLoadFile.bind(this);
+        this._handleLoadVolumeFile = this._handleLoadVolumeFile.bind(this);
+        this._handleLoadEnvFile = this._handleLoadEnvFile.bind(this);
 
         this.TweakDialog = new TweakDialog();
 
@@ -16,7 +17,8 @@ export class Midlayer extends EventTarget {
     }
 
     _addEventListeners() {
-        this.TweakDialog.addEventListener('volumeFileChosen', this._handleLoadFile);
+        this.TweakDialog.addEventListener('volumeFileChosen', this._handleLoadVolumeFile);
+        this.TweakDialog.addEventListener('envFileChosen', this._handleLoadEnvFile)
     }
 
     _getVolumeTypeFromURL(filename) {
@@ -29,10 +31,9 @@ export class Midlayer extends EventTarget {
         return exnToType[exn] || 'raw';
     }
 
-    _handleLoadFile(e) {
+    _handleLoadVolumeFile(e) {
         const params = this.TweakDialog._returnPARAMS();
         const file = params.volumeFile;
-        console.log(e);
         //check if empty
         if (file == null) {
             console.log("null file");
@@ -53,4 +54,23 @@ export class Midlayer extends EventTarget {
             }
         }));
     }
+
+    _handleLoadEnvFile(e) {
+        const params = this.TweakDialog._returnPARAMS();
+        const file = params.envFile;
+        //check if empty
+        if (file == null) {
+            console.log("null file");
+            // undefined and null loosely equal!
+            return;
+        }
+
+        this.dispatchEvent(new CustomEvent('loadEnv', {
+            detail: {
+                type       : 'file',
+                file       : file,
+            }
+        }));
+    }
+
 }
