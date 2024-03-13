@@ -9,6 +9,7 @@ import { MainDialog } from './dialogs/MainDialog/MainDialog.js';
 import { VolumeLoadDialog } from './dialogs/VolumeLoadDialog/VolumeLoadDialog.js';
 import { EnvmapLoadDialog } from './dialogs/EnvmapLoadDialog/EnvmapLoadDialog.js';
 import { TweakDialog } from './dialogs/TweakPaneDialog/TweakDialog.js';
+import { Midlayer } from './Midlayer.js';
 
 import { RenderingContextDialog } from './dialogs/RenderingContextDialog/RenderingContextDialog.js';
 import { DialogConstructor } from './dialogs/DialogConstructor.js';
@@ -48,6 +49,8 @@ constructor() {
     this.mainDialog.getEnvmapLoadContainer().appendChild(this.envmapLoadDialog.object);
     this.envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
 
+    this.midlayer = new Midlayer();
+    this.midlayer.addEventListener('loadVolume', this._handleVolumeLoad);
     //this.tweakDialog = new TweakDialog();
     //this.mainDialog.getTweakDialogContainer().appendChild(this.tweakDialog.object);
 
@@ -171,6 +174,7 @@ _handleToneMapperChange() {
 }
 
 async _handleVolumeLoad(e) {
+    console.log(e);
     const options = e.detail;
     if (options.type === 'file') {
         const readerClass = ReaderFactory(options.filetype);

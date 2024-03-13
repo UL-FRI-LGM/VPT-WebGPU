@@ -28,6 +28,8 @@ constructor () {
         volumeURL: 'http://',
         volumeFile: '',
         envmapFile: '',
+        precision: 8,
+        dimensions: [128,128,128],
     }
     this._initPaneMain();
 
@@ -120,7 +122,7 @@ _initPaneVolumeTab() {
     this.fileInputVolume = volumeFolder.addBinding(this.PARAMS,  'volumeFile', {
         view: 'file-input',
         lineCount: 3,
-        filetypes: ['.bvp'],
+        filetypes: ['.bvp', '.json', '.zip'],
         hidden: true,        
     });
 
@@ -190,7 +192,7 @@ _initPaneMain() {
     this.fileInputEnv = environmentFolder.addBinding(this.PARAMS,  'envmapFile', {
         view: 'file-input',
         lineCount: 3,
-        filetypes: ['.bvp'],
+        filetypes: ['.bvp', '.json', '.zip'],
         hidden: true,
         onChange: (value) => {
             this._environmentFileInputChange(value);
