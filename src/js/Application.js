@@ -8,6 +8,8 @@ import { ReaderFactory } from './readers/ReaderFactory.js';
 import { MainDialog } from './dialogs/MainDialog/MainDialog.js';
 import { VolumeLoadDialog } from './dialogs/VolumeLoadDialog/VolumeLoadDialog.js';
 import { EnvmapLoadDialog } from './dialogs/EnvmapLoadDialog/EnvmapLoadDialog.js';
+import { TweakDialog } from './dialogs/TweakPaneDialog/TweakDialog.js';
+
 import { RenderingContextDialog } from './dialogs/RenderingContextDialog/RenderingContextDialog.js';
 import { DialogConstructor } from './dialogs/DialogConstructor.js';
 
@@ -45,6 +47,9 @@ constructor() {
     this.envmapLoadDialog = new EnvmapLoadDialog();
     this.mainDialog.getEnvmapLoadContainer().appendChild(this.envmapLoadDialog.object);
     this.envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
+
+    //this.tweakDialog = new TweakDialog();
+    //this.mainDialog.getTweakDialogContainer().appendChild(this.tweakDialog.object);
 
     this.renderingContextDialog = new RenderingContextDialog();
     this.mainDialog.getRenderingContextSettingsContainer().appendChild(
@@ -213,6 +218,10 @@ _handleEnvmapLoad(e) {
     } else if (options.type === 'url') {
         image.src = options.url;
     }
+}
+
+_handleTweakLoad(e) {
+    console.log(loaded);
 }
 
 }
