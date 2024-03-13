@@ -12,6 +12,9 @@ export class TweakDialog extends EventTarget {
 constructor () {
     super()
 
+    //this._initPaneMain = this._initPaneMain.bind(this);
+    //this._initPaneVolumeTab = this._initPaneVolumeTab.bind(this);
+
     this.object = template.content.cloneNode(true);
     this.binds = DOMUtils.bind(this.object);
 
@@ -71,9 +74,9 @@ _volumeDropdownChange(e) {
 
 
 _volumeFileInputChange(e) {
-    //console.log('Selected file:', e.value);
-    //console.log('PARAMS status', this.PARAMS);
-    this.dispatchEvent(new CustomEvent('volumeFileChoosen', {
+    console.log('Selected file:', e.value);
+    console.log('PARAMS status', this.PARAMS);
+    this.dispatchEvent(new CustomEvent('volumeFileChosen', {
         detail: {
             type        : 'file',
             file        : this.PARAMS.volumeFile,
@@ -163,6 +166,8 @@ _initPaneMain() {
         ],
     });
     
+    this._initPaneVolumeTab();
+
     //create folder
     const environmentFolder = this.tabs.pages[0].addFolder({title: 'Environment'});
 
