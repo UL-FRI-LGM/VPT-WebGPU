@@ -12,12 +12,12 @@ export class TweakDialog extends EventTarget {
 constructor () {
     super()
 
-    //this._initPaneMain = this._initPaneMain.bind(this);
-    //this._initPaneVolumeTab = this._initPaneVolumeTab.bind(this);
+    this._initPaneMain = this._initPaneMain.bind(this);
+    this._initPaneVolumeFolder = this._initPaneVolumeFolder.bind(this);
 
-    this.object = template.content.cloneNode(true);
-    this.binds = DOMUtils.bind(this.object);
-
+    //this.object = template.content.cloneNode(true);
+    //this.binds = DOMUtils.bind(this.object);
+    console.log("creating pane");
     this.pane = new Pane({
         container: document.getElementById('pane-container'),
     });
@@ -30,6 +30,7 @@ constructor () {
         envmapFile: '',
         precision: 8,
         dimensions: [128,128,128],
+        //volumeURLText: 'https://',
     }
     this._initPaneMain();
 
@@ -97,7 +98,7 @@ _environmentURLFieldChange(e) {
     console.log('Selected URL:', e.value);
 }
 
-_initPaneVolumeTab() {
+_initPaneVolumeFolder() {
 
     //create folder
     const volumeFolder = this.tabs.pages[0].addFolder({title: 'Volume'});
@@ -133,16 +134,11 @@ _initPaneVolumeTab() {
     });
 
     //from url
-    this.urlInputVolume = volumeFolder.addBlade({
-        view: 'text',
-        parse: (v) => String(v),
+    this.urlInputVolume = volumeFolder.addBinding(this.PARAMS, 'volumeURL', {
         label: 'URL',        
         hidden: true,
-        value: "//",
-        onChange: (value) => {
-            //TODO: handle url load
-            this._volumeFileUploadChange(value);
-        }
+        value: "https://",
+
     });
 
     //from demo
@@ -150,7 +146,6 @@ _initPaneVolumeTab() {
         title: '...',
         label: 'Demo',
         hidden: true,
-
         onChange: (value) => {
             //TODO: handle demo load
             console.log("No demos available");
@@ -158,23 +153,11 @@ _initPaneVolumeTab() {
     });
 }
 
-_initPaneMain() {
-
-    this.tabs = this.pane.addTab({
-        pages: [
-            {title: 'Data'},
-            {title: 'Settings'},
-            {title: 'About'}
-        ],
-    });
-    
-    this._initPaneVolumeTab();
-
+_initPaneEnvFolder() {
     //create folder
     const environmentFolder = this.tabs.pages[0].addFolder({title: 'Environment'});
 
-    
-    //set up ui and listener for volume importing
+    //set up ui list
     const environmentFolderImport = environmentFolder.addBlade({
         view: 'list',
         label: 'Type',
@@ -186,18 +169,25 @@ _initPaneMain() {
         ],
         value: 'init',
     });
+
+    //listener for input source change
     environmentFolderImport.on('change', (value) => {this._environmentDropdownChange(value)})
 
-    //upload file
+    //upload file widget
     this.fileInputEnv = environmentFolder.addBinding(this.PARAMS,  'envmapFile', {
         view: 'file-input',
         lineCount: 3,
+        //TODO, WHICH FILETYPES?
         filetypes: ['.bvp', '.json', '.zip'],
         hidden: true,
-        onChange: (value) => {
-            this._environmentFileInputChange(value);
-        }
     });
+
+    //upload file event
+    this.fileInputEnv
+        .on('change', (value) => {
+        this._environmentFileInputChange(value);
+    });
+    
     //select url
     this.urlInputEnv = environmentFolder.addButton({
         title: '...',
@@ -220,6 +210,30 @@ _initPaneMain() {
             console.log("No demos available");
         }
     });
+}
+
+_initPaneMain() {
+
+    this.tabs = this.pane.addTab({
+        pages: [
+            {title: 'Data'},
+            {title: 'Settings'},
+            {title: 'About'}
+        ],
+    });
+
+    this._initPaneVolumeFolder();
+    this._initPaneEnvFolder();
+
+    ///const folder3 = this.tabs.pages[1].addFolder({title: 'Renderer2'});
+    //const folder4 = this.tabs.pages[1].addFolder({title: 'Renderer2'});
+    //const folder5 = folder1.addFolder({title: 'Renderer2'});
+    //const folder1 = this.tabs.pages[1].addFolder({title: 'Renderer'});
+    //const folder6 = folder1.addFolder({title: 'Renderer2'});
+    //const folder2 = folder1.addFolder({title: 'Subrenderer'});
+    
+    
+    
 }
 
 }

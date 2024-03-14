@@ -22,6 +22,8 @@ import { PerspectiveCamera } from './PerspectiveCamera.js';
 export class Application {
 
 constructor() {
+
+    console.log("application");
     this._handleFileDrop = this._handleFileDrop.bind(this);
     this._handleRendererChange = this._handleRendererChange.bind(this);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);

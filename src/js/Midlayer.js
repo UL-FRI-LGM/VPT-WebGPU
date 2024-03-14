@@ -12,7 +12,7 @@ export class Midlayer extends EventTarget {
         this._handleLoadEnvFile = this._handleLoadEnvFile.bind(this);
 
         this.TweakDialog = new TweakDialog();
-
+        
         this._addEventListeners();
     }
 
