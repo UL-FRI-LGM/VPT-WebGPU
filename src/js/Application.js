@@ -9,7 +9,8 @@ import { MainDialog } from './dialogs/MainDialog/MainDialog.js';
 import { VolumeLoadDialog } from './dialogs/VolumeLoadDialog/VolumeLoadDialog.js';
 import { EnvmapLoadDialog } from './dialogs/EnvmapLoadDialog/EnvmapLoadDialog.js';
 import { TweakDialog } from './dialogs/TweakPaneDialog/TweakDialog.js';
-import { Midlayer } from './Midlayer.js';
+import { DataMidlayer } from './DataMidlayer.js';
+import { SettingsMidlayer } from './SettingsMidlayer.js';
 
 import { RenderingContextDialog } from './dialogs/RenderingContextDialog/RenderingContextDialog.js';
 import { DialogConstructor } from './dialogs/DialogConstructor.js';
@@ -51,8 +52,13 @@ constructor() {
     this.mainDialog.getEnvmapLoadContainer().appendChild(this.envmapLoadDialog.object);
     this.envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
 
-    this.midlayer = new Midlayer();
-    this.midlayer.addEventListener('loadVolume', this._handleVolumeLoad);
+    this.tweakDialog = new TweakDialog();
+
+    this.dataMidlayer = new DataMidlayer(this.tweakDialog);
+    this.dataMidlayer.addEventListener('loadVolume', this._handleVolumeLoad);
+
+    this.settingsMidlayer = new SettingsMidlayer(this.tweakDialog);
+    //this.settingsMidlayer.addEventListener()
     //this.tweakDialog = new TweakDialog();
     //this.mainDialog.getTweakDialogContainer().appendChild(this.tweakDialog.object);
 

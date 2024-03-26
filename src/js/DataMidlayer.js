@@ -1,17 +1,15 @@
-import { DOMUtils } from './utils/DOMUtils.js';
-
 import { TweakDialog } from './dialogs/TweakPaneDialog/TweakDialog.js';
 
 
-export class Midlayer extends EventTarget {
+export class DataMidlayer extends EventTarget {
 
-    constructor () {
+    constructor (tweakpaneDialog) {
         super();
 
         this._handleLoadVolumeFile = this._handleLoadVolumeFile.bind(this);
         this._handleLoadEnvFile = this._handleLoadEnvFile.bind(this);
 
-        this.TweakDialog = new TweakDialog();
+        this.TweakDialog = tweakpaneDialog;
         
         this._addEventListeners();
     }
@@ -36,7 +34,7 @@ export class Midlayer extends EventTarget {
         const file = params.volumeFile;
         //check if empty
         if (file == null) {
-            console.log("null file");
+            //console.log("null file");
             // undefined and null loosely equal!
             return;
         }
@@ -60,7 +58,7 @@ export class Midlayer extends EventTarget {
         const file = params.envFile;
         //check if empty
         if (file == null) {
-            console.log("null file");
+            //console.log("null file");
             // undefined and null loosely equal!
             return;
         }

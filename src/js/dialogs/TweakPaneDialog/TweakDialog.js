@@ -12,12 +12,12 @@ export class TweakDialog extends EventTarget {
 constructor () {
     super()
 
-    this._initPaneMain = this._initPaneMain.bind(this);
-    this._initPaneVolumeFolder = this._initPaneVolumeFolder.bind(this);
+    //this._initPaneMain = this._initPaneMain.bind(this);
+    //this._initPaneVolumeFolder = this._initPaneVolumeFolder.bind(this);
 
     //this.object = template.content.cloneNode(true);
     //this.binds = DOMUtils.bind(this.object);
-    console.log("creating pane");
+
     this.pane = new Pane({
         container: document.getElementById('pane-container'),
     });
@@ -214,7 +214,8 @@ _initPaneEnvFolder() {
 
 _initPaneMain() {
 
-    this.tabs = this.pane.addTab({
+    this.mainfolder = this.pane.addFolder({title: ""});
+    this.tabs = this.mainfolder.addTab({
         pages: [
             {title: 'Data'},
             {title: 'Settings'},
@@ -225,7 +226,30 @@ _initPaneMain() {
     this._initPaneVolumeFolder();
     this._initPaneEnvFolder();
 
-    ///const folder3 = this.tabs.pages[1].addFolder({title: 'Renderer2'});
+    //folder 1
+    const rendererFolder = this.tabs.pages[1].addFolder({title: 'Renderer'});
+    const rendererFolderList = rendererFolder.addBlade({
+        view: 'list',
+        label: 'Type',
+        options: [
+            {text: 'Maximum intensity projection', value: 'renderer_mip'},
+            {text: 'Isosurface extraction', value: 'renderer_ie'},
+            {text: 'Emission-absorption model', value: 'renderer_eam'},
+            {text: 'Directional occlusion shading', value: 'renderer_doa'},
+            {text: 'Local ambient occlusion', value: 'renderer_lao'},
+            {text: 'Single scattering ', value: 'renderer_ss'},
+            {text: 'Multiple scattering', value: 'renderer_ms'},
+            {text: 'Multiple scattering (compute)', value: 'renderer_msc'},
+            {text: 'Depth image', value: 'renderer_di'},
+        ],
+        value: '',
+    });
+    //folder
+    rendererFolderList.on('change', (value) => {this._changeRendererUI(value)});
+    const toneMapperFolder = this.tabs.pages[1].addFolder({title: 'Tone Mapper'});
+    const contextFolder = this.tabs.pages[1].addFolder({title: 'Context'});
+    const animationFolder = this.tabs.pages[1].addFolder({title: 'Record Animation'});
+    
     //const folder4 = this.tabs.pages[1].addFolder({title: 'Renderer2'});
     //const folder5 = folder1.addFolder({title: 'Renderer2'});
     //const folder1 = this.tabs.pages[1].addFolder({title: 'Renderer'});
@@ -235,5 +259,16 @@ _initPaneMain() {
     
     
 }
+
+_changeRendererUI(rendererType) {
+    console.log(rendererType.value);
+    this.dispatchEvent(new CustomEvent('rendererChange', {
+        detail: {
+            type        : 'UI',
+            renderer    : rendererType.value,
+        }
+    }));
+}
+
 
 }
