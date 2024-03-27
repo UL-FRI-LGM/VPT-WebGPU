@@ -77,8 +77,8 @@ _volumeDropdownChange(e) {
 
 
 _volumeFileInputChange(e) {
-    console.log('Selected file:', e.value);
-    console.log('PARAMS status', this.PARAMS);
+    //console.log('Selected file:', e.value);
+    //console.log('PARAMS status', this.PARAMS);
     this.dispatchEvent(new CustomEvent('volumeFileChosen', {
         detail: {
             type        : 'file',
@@ -227,26 +227,50 @@ _initPaneMain() {
     this._initPaneEnvFolder();
 
     //folder 1
-    const rendererFolder = this.tabs.pages[1].addFolder({title: 'Renderer'});
-    const rendererFolderList = rendererFolder.addBlade({
+    this.rendererFolder = this.tabs.pages[1].addFolder({title: 'Renderer'});
+    const rendererFolderList = this.rendererFolder.addBlade({
         view: 'list',
         label: 'Type',
         options: [
-            {text: 'Maximum intensity projection', value: 'renderer_mip'},
-            {text: 'Isosurface extraction', value: 'renderer_ie'},
-            {text: 'Emission-absorption model', value: 'renderer_eam'},
-            {text: 'Directional occlusion shading', value: 'renderer_doa'},
-            {text: 'Local ambient occlusion', value: 'renderer_lao'},
-            {text: 'Single scattering ', value: 'renderer_ss'},
-            {text: 'Multiple scattering', value: 'renderer_ms'},
-            {text: 'Multiple scattering (compute)', value: 'renderer_msc'},
-            {text: 'Depth image', value: 'renderer_di'},
+            {text: 'Maximum intensity projection',  value: 'mip' },
+            {text: 'Isosurface extraction',         value: 'iso'  },
+            {text: 'Emission-absorption model',     value: 'eam' },
+            {text: 'Directional occlusion shading', value: 'dos' },
+            {text: 'Local ambient occlusion',       value: 'lao' },
+            {text: 'Single scattering ',            value: 'mcs'  },
+            {text: 'Multiple scattering',           value: 'mcm'  },
+            {text: 'Multiple scattering (compute)', value: 'mcm-compute' },
+            {text: 'Depth image',                   value: 'depth'  },
         ],
         value: '',
     });
     //folder
-    rendererFolderList.on('change', (value) => {this._changeRendererUI(value)});
-    const toneMapperFolder = this.tabs.pages[1].addFolder({title: 'Tone Mapper'});
+    rendererFolderList.on('change', (value) => {
+        this._eventDispatcher("renderer", value)
+    });
+
+    this.toneMapperFolder = this.tabs.pages[1].addFolder({title: 'Tone Mapper'});
+    const toneMapperFolderList = this.toneMapperFolder.addBlade({
+        view: 'list',
+        label: 'Type',
+        options: [
+            {text: 'Artistic',      value: 'artistic'   },
+            {text: 'Range',         value: 'range'      },
+            {text: 'Reinhard',      value: 'reinhard'   },
+            {text: 'Reinhard 2',    value: 'reinhard2'  },
+            {text: 'Uncharted 2',   value: 'uncharted2' },
+            {text: 'Filmic',        value: 'filmic'     },
+            {text: 'Unreal',        value: 'unreal'     },
+            {text: 'Aces',          value: 'aces'       },
+            {text: 'Lottes',        value: 'lottes'     },
+            {text: 'Uchimura',      value: 'uchimura'   },
+        ],
+        value: '',
+    });
+    toneMapperFolderList.on('change', (value) => {
+        this._eventDispatcher("toneMapper", value)
+    });
+    
     const contextFolder = this.tabs.pages[1].addFolder({title: 'Context'});
     const animationFolder = this.tabs.pages[1].addFolder({title: 'Record Animation'});
     
@@ -260,14 +284,28 @@ _initPaneMain() {
     
 }
 
-_changeRendererUI(rendererType) {
-    console.log(rendererType.value);
-    this.dispatchEvent(new CustomEvent('rendererChange', {
+_eventDispatcher(eventType, data) {
+    console.log(eventType, ": ", data.value);
+    this.dispatchEvent(new CustomEvent('settingsChange', {
         detail: {
-            type        : 'UI',
-            renderer    : rendererType.value,
+            type  : eventType,
+            value : data.value,
         }
     }));
+}
+
+_updateRendererFolder(properties) {
+    if (properties == null) {
+        return;
+    }
+    console.log("tweakpane received data : ", properties );
+    for (var property of properties) {
+        console.log(property);
+    }
+}
+
+_updateToneMapperFolder(properties) {
+    console.log("tweakpane received data : ", properties );
 }
 
 

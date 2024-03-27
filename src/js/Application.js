@@ -24,7 +24,6 @@ export class Application {
 
 constructor() {
 
-    console.log("application");
     this._handleFileDrop = this._handleFileDrop.bind(this);
     this._handleRendererChange = this._handleRendererChange.bind(this);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
@@ -56,8 +55,11 @@ constructor() {
 
     this.dataMidlayer = new DataMidlayer(this.tweakDialog);
     this.dataMidlayer.addEventListener('loadVolume', this._handleVolumeLoad);
+    this.dataMidlayer.addEventListener('loadEnv', this._handleVolumeLoad);
 
     this.settingsMidlayer = new SettingsMidlayer(this.tweakDialog);
+    this.settingsMidlayer.addEventListener('changeRenderer', this._handleRendererChange);
+    this.settingsMidlayer.addEventListener('changeToneMapper', this._handleToneMapperChange);
     //this.settingsMidlayer.addEventListener()
     //this.tweakDialog = new TweakDialog();
     //this.mainDialog.getTweakDialogContainer().appendChild(this.tweakDialog.object);
@@ -100,6 +102,8 @@ constructor() {
 
     this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
     this.mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
+
+    
     this._handleRendererChange();
     this._handleToneMapperChange();
 
@@ -133,15 +137,22 @@ _handleFileDrop(e) {
     }));
 }
 
-_handleRendererChange() {
+
+_handleRendererChange(e) {
     if (this.rendererDialog) {
         this.rendererDialog.remove();
     }
 
-    const which = this.mainDialog.getSelectedRenderer();
+    var which;
+    if (e == null) {    
+        which = 'eam';
+    } else {
+        which = e.detail.value;
+    }
     this.renderingContext.chooseRenderer(which);
     const renderer = this.renderingContext.renderer;
     const object = DialogConstructor.construct(renderer.properties);
+    this.settingsMidlayer._updateTweakpaneUI('renderer', renderer.properties);
     const binds = DOMUtils.bind(object);
     this.rendererDialog = object;
     for (const name in binds) {
@@ -155,17 +166,26 @@ _handleRendererChange() {
     }
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
+
+    //update UI
 }
 
-_handleToneMapperChange() {
+_handleToneMapperChange(e) {
     if (this.toneMapperDialog) {
         this.toneMapperDialog.remove();
     }
 
-    const which = this.mainDialog.getSelectedToneMapper();
+    var which;
+    if (e == null) {    
+        which = 'artistic';
+    } else {
+        which = e.detail.value;
+    }
+    //const which = e.detail.value;
     this.renderingContext.chooseToneMapper(which);
     const toneMapper = this.renderingContext.toneMapper;
     const object = DialogConstructor.construct(toneMapper.properties);
+    //TODO use tonemapper properties to contact settingsmidlayer, providing options in the UI
     const binds = DOMUtils.bind(object);
     this.toneMapperDialog = object;
     for (const name in binds) {
@@ -182,7 +202,7 @@ _handleToneMapperChange() {
 }
 
 async _handleVolumeLoad(e) {
-    console.log(e);
+    //console.log(e);
     const options = e.detail;
     if (options.type === 'file') {
         const readerClass = ReaderFactory(options.filetype);
