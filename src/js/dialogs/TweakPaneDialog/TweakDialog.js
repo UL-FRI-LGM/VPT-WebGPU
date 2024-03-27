@@ -12,17 +12,23 @@ export class TweakDialog extends EventTarget {
 constructor () {
     super()
 
-    //this._initPaneMain = this._initPaneMain.bind(this);
-    //this._initPaneVolumeFolder = this._initPaneVolumeFolder.bind(this);
+    this._initPaneMain = this._initPaneMain.bind(this);
+    this._initPaneVolumeFolder = this._initPaneVolumeFolder.bind(this);
+    this._initPaneEnvFolder = this._initPaneEnvFolder.bind(this);
+    this._updateRendererFolder = this._updateRendererFolder.bind(this);
 
     //this.object = template.content.cloneNode(true);
     //this.binds = DOMUtils.bind(this.object);
 
     this.pane = new Pane({
         container: document.getElementById('pane-container'),
+        title: 'Volumetric Path Tracing',
     });
 
     this.pane.registerPlugin(TweakpaneFileImportPlugin);
+
+    this.rendererBindings = [];
+    this.toneMapperBindings = [];
 
     this.PARAMS = {
         volumeURL: 'http://',
@@ -30,7 +36,6 @@ constructor () {
         envmapFile: '',
         precision: 8,
         dimensions: [128,128,128],
-        //volumeURLText: 'https://',
     }
     this._initPaneMain();
 
@@ -214,8 +219,8 @@ _initPaneEnvFolder() {
 
 _initPaneMain() {
 
-    this.mainfolder = this.pane.addFolder({title: ""});
-    this.tabs = this.mainfolder.addTab({
+    //this.mainfolder = this.pane.addFolder({title: ""});
+    this.tabs = this.pane.addTab({
         pages: [
             {title: 'Data'},
             {title: 'Settings'},
@@ -242,7 +247,7 @@ _initPaneMain() {
             {text: 'Multiple scattering (compute)', value: 'mcm-compute' },
             {text: 'Depth image',                   value: 'depth'  },
         ],
-        value: '',
+        value: 'eam',
     });
     //folder
     rendererFolderList.on('change', (value) => {
@@ -265,7 +270,7 @@ _initPaneMain() {
             {text: 'Lottes',        value: 'lottes'     },
             {text: 'Uchimura',      value: 'uchimura'   },
         ],
-        value: '',
+        value: 'artistic',
     });
     toneMapperFolderList.on('change', (value) => {
         this._eventDispatcher("toneMapper", value)
@@ -298,15 +303,73 @@ _updateRendererFolder(properties) {
     if (properties == null) {
         return;
     }
-    console.log("tweakpane received data : ", properties );
+    for (var binding in this.rendererBindings) {
+        this.rendererBindings[binding].dispose();
+    }
+
+    //this.rendererFolder.blades.dispose();
+    //console.log("tweakpane received data : ", properties );
     for (var property of properties) {
-        console.log(property);
+        switch (property.type) {
+            case 'spinner': 
+                this.PARAMS[property.name] = property.value;
+                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, property.name, {
+                    label: property.label,
+                    ...(property.min  !== null &&  { min: property.min   }),  
+                    ...(property.max  !== null &&  { max: property.max   }),  
+                    ...(property.step !== null &&  { step: property.step }),  
+                }));
+                break;
+            case 'checkbox':
+                this.PARAMS[property.name] = property.value;
+                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, property.name, {
+                    label: property.label,
+                }));
+                break;
+            case 'transfer-function':
+                //TODO: implement transfer function widget
+                break;
+            //TODO maybe more cases?
+        }
     }
 }
 
 _updateToneMapperFolder(properties) {
-    console.log("tweakpane received data : ", properties );
+    if (properties == null) {
+        return;
+    }
+    for (var binding in this.toneMapperBindings) {
+        this.toneMapperBindings[binding].dispose();
+    }
+
+    //this.rendererFolder.blades.dispose();
+    //console.log("tweakpane received data : ", properties );
+    for (var property of properties) {
+    switch (property.type) {
+        case 'slider':
+        case 'spinner': 
+            this.PARAMS[property.name] = property.value;
+            this.toneMapperBindings[property.name] = (this.toneMapperFolder.addBinding(this.PARAMS, property.name, {
+                label: property.label,
+                ...(property.min  !== null &&  { min: property.min   }),  
+                ...(property.max  !== null &&  { max: property.max   }),  
+                ...(property.step !== null &&  { step: property.step }),  
+            }));
+            break;
+        case 'checkbox':
+            this.PARAMS[property.name] = property.value;
+            this.toneMapperBindings[property.name] = (this.toneMapperFolder.addBinding(this.PARAMS, property.name, {
+                label: property.label,
+            }));
+            break;
+        case 'transfer-function':
+            //TODO: implement transfer function widget
+            break;
+        //TODO maybe more cases?
+        }
+    }
+}
+
 }
 
 
-}

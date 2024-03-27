@@ -167,7 +167,6 @@ _handleRendererChange(e) {
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
 
-    //update UI
 }
 
 _handleToneMapperChange(e) {
@@ -185,6 +184,7 @@ _handleToneMapperChange(e) {
     this.renderingContext.chooseToneMapper(which);
     const toneMapper = this.renderingContext.toneMapper;
     const object = DialogConstructor.construct(toneMapper.properties);
+    this.settingsMidlayer._updateTweakpaneUI('toneMapper', toneMapper.properties);
     //TODO use tonemapper properties to contact settingsmidlayer, providing options in the UI
     const binds = DOMUtils.bind(object);
     this.toneMapperDialog = object;
