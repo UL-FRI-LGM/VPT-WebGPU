@@ -67,6 +67,10 @@ constructor() {
     this.renderingContextDialog = new RenderingContextDialog();
     this.mainDialog.getRenderingContextSettingsContainer().appendChild(
             this.renderingContextDialog.object);
+    
+    this.settingsMidlayer.addEventListener('resolution', e => { 
+        this.renderingContext.resolution = e.detail.value;;
+    });
     this.renderingContextDialog.addEventListener('resolution', e => {
         const resolution = this.renderingContextDialog.resolution;
         this.renderingContext.resolution = resolution;
@@ -81,7 +85,11 @@ constructor() {
         const filter = this.renderingContextDialog.filter;
         this.renderingContext.setFilter(filter);
     });
+    this.settingsMidlayer.addEventListener('fullscreen', e => { 
+        this.renderingContext.canvas.classList.toggle('fullscreen', e.detail.value);
+    });
     this.renderingContextDialog.addEventListener('fullscreen', e => {
+        console.log(this.renderingContextDialog.fullscreen);
         this.renderingContext.canvas.classList.toggle('fullscreen',
             this.renderingContextDialog.fullscreen);
     });

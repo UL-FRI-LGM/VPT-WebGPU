@@ -20,7 +20,6 @@ export class SettingsMidlayer extends EventTarget {
 
 
     _handleEvent(e) {
-        console.log(e.detail.value);
         switch (e.detail.type) {
             case 'renderer':
                 this.dispatchEvent(new CustomEvent('changeRenderer', {
@@ -29,7 +28,6 @@ export class SettingsMidlayer extends EventTarget {
                         value       : e.detail.value,
                     }
                 }));
-                //TODO UPDATE UI
                 break;
             case 'toneMapper':
                 this.dispatchEvent(new CustomEvent('changeToneMapper', {
@@ -38,10 +36,25 @@ export class SettingsMidlayer extends EventTarget {
                         value       : e.detail.value,
                     }
                 }));
-                //TODO UPDATE UI
                 break;
+            case 'fullscreen':
+                this.dispatchEvent(new CustomEvent('fullscreen', {
+                    detail: {
+                        type : 'fullscreen',
+                        value : e.detail.value,
+                    }
+                }));
+            case 'resolution':
+                this.dispatchEvent(new CustomEvent('resolution', {
+                    detail: {
+                        type : 'resolution',
+                        value : e.detail.value,
+                    }
+                }));
         }
     }
+
+
 
     _updateTweakpaneUI(folder, properties) {
         switch (folder) {

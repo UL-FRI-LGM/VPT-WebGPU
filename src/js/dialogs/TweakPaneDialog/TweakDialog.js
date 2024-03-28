@@ -12,14 +12,6 @@ export class TweakDialog extends EventTarget {
 constructor () {
     super()
 
-    this._initPaneMain = this._initPaneMain.bind(this);
-    this._initPaneVolumeFolder = this._initPaneVolumeFolder.bind(this);
-    this._initPaneEnvFolder = this._initPaneEnvFolder.bind(this);
-    this._updateRendererFolder = this._updateRendererFolder.bind(this);
-
-    //this.object = template.content.cloneNode(true);
-    //this.binds = DOMUtils.bind(this.object);
-
     this.pane = new Pane({
         container: document.getElementById('pane-container'),
         title: 'Volumetric Path Tracing',
@@ -217,6 +209,42 @@ _initPaneEnvFolder() {
     });
 }
 
+_initContextFolder() {
+    this.contextFolder = this.tabs.pages[1].addFolder({title: 'Context'});
+
+    this.PARAMS['fullscreen'] = false;
+    this.contextFolder.addBinding(this.PARAMS, 'fullscreen', {
+        label : 'Fullscreen',
+    }).on('change', (event) => { this._eventDispatcher('fullscreen', event.value)});
+    this.PARAMS['filter'] = true;
+    this.contextFolder.addBinding(this.PARAMS, 'filter', {
+        label : 'Linear filter',
+    });
+    this.PARAMS['resolution'] = 512;
+    this.contextFolder.addBinding(this.PARAMS, 'resolution', {
+        min : 1,
+        max : 4096,
+        step : 1,
+    }).on('change', (event) => { this._eventDispatcher('resolution', event.value)});
+    this.PARAMS['translation'] = {x: 0, y: 0, z: 0};
+    this.contextFolder.addBinding(this.PARAMS, 'translation', {
+        label :  "Translation"
+    });
+    this.PARAMS['rotation'] = {x: 0, y: 0, z: 0};
+    this.contextFolder.addBinding(this.PARAMS, 'rotation', {
+        label :  "Rotation"
+    });
+    this.PARAMS['scale'] = {x: 1, y: 1, z: 1};
+    this.contextFolder.addBinding(this.PARAMS, 'scale', {
+        label :  "Scale"
+    });
+
+}
+
+_initRecordFolder() {
+    this.animationFolder = this.tabs.pages[1].addFolder({title: 'Record Animation'});
+
+}
 _initPaneMain() {
 
     //this.mainfolder = this.pane.addFolder({title: ""});
@@ -231,7 +259,8 @@ _initPaneMain() {
     this._initPaneVolumeFolder();
     this._initPaneEnvFolder();
 
-    //folder 1
+
+    //Renderer folder list
     this.rendererFolder = this.tabs.pages[1].addFolder({title: 'Renderer'});
     const rendererFolderList = this.rendererFolder.addBlade({
         view: 'list',
@@ -249,11 +278,10 @@ _initPaneMain() {
         ],
         value: 'eam',
     });
-    //folder
-    rendererFolderList.on('change', (value) => {
-        this._eventDispatcher("renderer", value)
+    rendererFolderList.on('change', (event) => {
+        this._eventDispatcher("renderer", event.value)
     });
-
+    //Tone Mapper folder list
     this.toneMapperFolder = this.tabs.pages[1].addFolder({title: 'Tone Mapper'});
     const toneMapperFolderList = this.toneMapperFolder.addBlade({
         view: 'list',
@@ -272,29 +300,23 @@ _initPaneMain() {
         ],
         value: 'artistic',
     });
-    toneMapperFolderList.on('change', (value) => {
-        this._eventDispatcher("toneMapper", value)
+    toneMapperFolderList.on('change', (event) => {
+        this._eventDispatcher("toneMapper", event.value)
     });
-    
-    const contextFolder = this.tabs.pages[1].addFolder({title: 'Context'});
-    const animationFolder = this.tabs.pages[1].addFolder({title: 'Record Animation'});
-    
-    //const folder4 = this.tabs.pages[1].addFolder({title: 'Renderer2'});
-    //const folder5 = folder1.addFolder({title: 'Renderer2'});
-    //const folder1 = this.tabs.pages[1].addFolder({title: 'Renderer'});
-    //const folder6 = folder1.addFolder({title: 'Renderer2'});
-    //const folder2 = folder1.addFolder({title: 'Subrenderer'});
-    
-    
-    
+
+    this._initContextFolder();
+    this._initRecordFolder();
 }
 
 _eventDispatcher(eventType, data) {
-    console.log(eventType, ": ", data.value);
+    if (data === undefined || data == null) {
+        return;
+    } 
+    //console.log(eventType, ": ", data);
     this.dispatchEvent(new CustomEvent('settingsChange', {
         detail: {
             type  : eventType,
-            value : data.value,
+            value : data,
         }
     }));
 }
@@ -307,10 +329,11 @@ _updateRendererFolder(properties) {
         this.rendererBindings[binding].dispose();
     }
 
-    //this.rendererFolder.blades.dispose();
-    //console.log("tweakpane received data : ", properties );
+
     for (var property of properties) {
         switch (property.type) {
+           /*  TODO : monitor changes on these bindings, use on('change',  (event) => {
+                 this.dispatchEvent(new CustomEvent(rendererChange, {})) } */
             case 'spinner': 
                 this.PARAMS[property.name] = property.value;
                 this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, property.name, {
@@ -369,6 +392,7 @@ _updateToneMapperFolder(properties) {
         }
     }
 }
+
 
 }
 
