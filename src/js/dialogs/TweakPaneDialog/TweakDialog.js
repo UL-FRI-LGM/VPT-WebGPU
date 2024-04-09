@@ -244,6 +244,41 @@ _initContextFolder() {
 _initRecordFolder() {
     this.animationFolder = this.tabs.pages[1].addFolder({title: 'Record Animation'});
 
+    this.PARAMS["start_time"] = 0;
+    this.animationFolder.addBinding(this.PARAMS, 'start_time', {
+        label : 'Start time (sec)',
+        min : 0,
+    });
+    this.PARAMS['end_time'] = 1;
+    this.animationFolder.addBinding(this.PARAMS, 'end_time', {
+        label : 'End time (sec)',
+        min : 0, 
+    });
+    this.PARAMS['render_time_frame'] = 1; 
+    this.animationFolder.addBinding(this.PARAMS, 'render_time_frame', {
+        label : 'Render time per frame (sec)',
+        min : 0,
+    });
+    this.PARAMS["fps"] = 30;
+    this.animationFolder.addBinding(this.PARAMS, 'fps', {
+        label : 'FPS',
+        min : 0,
+    });
+    const list = this.animationFolder.addBlade({
+        view: 'list',
+        label: 'Output type',
+        options: [
+            {text: 'Image sequence', value: 'images'},
+            {text: 'Video', value: 'video'},
+        ],
+        value: 'images',
+    })
+    this.animationFolder.addButton({
+        title: 'record',
+    }).on('click', () =>  {
+        this._eventDispatcher('record', list.value);
+    })
+
 }
 _initPaneMain() {
 
