@@ -159,22 +159,20 @@ _handleRendererChange(e) {
     }
     this.renderingContext.chooseRenderer(which);
     const renderer = this.renderingContext.renderer;
-    const object = DialogConstructor.construct(renderer.properties);
-    this.settingsMidlayer._updateTweakpaneUI('renderer', renderer.properties);
-    const binds = DOMUtils.bind(object);
-    this.rendererDialog = object;
-    for (const name in binds) {
-        binds[name].addEventListener('change', e => {
-            const value = binds[name].value;
-            renderer[name] = value;
-            renderer.dispatchEvent(new CustomEvent('change', {
-                detail: { name, value }
-            }));
-        });
+    const object = this.settingsMidlayer._updateTweakpaneUI('renderer', renderer.properties);
+    
+    if (object != null && object != undefined) {
+        const binds = DOMUtils.bind(object);
+        for (const name in binds) {
+            binds[name].addEventListener('change', e => {
+                const value = binds[name].value;
+                renderer[name] = value;
+                renderer.dispatchEvent(new CustomEvent('change', {
+                    detail: { name, value }
+                }));
+            });
+        }
     }
-    const container = this.mainDialog.getRendererSettingsContainer();
-    container.appendChild(this.rendererDialog);
-
 }
 
 _handleToneMapperChange(e) {

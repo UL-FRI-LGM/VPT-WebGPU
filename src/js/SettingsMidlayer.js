@@ -59,8 +59,7 @@ export class SettingsMidlayer extends EventTarget {
     _updateTweakpaneUI(folder, properties) {
         switch (folder) {
             case 'renderer':
-                this.TweakDialog._updateRendererFolder(properties);
-                break;
+                return this.TweakDialog._updateRendererFolder(properties);
             case 'toneMapper':
                 this.TweakDialog._updateToneMapperFolder(properties);
         }

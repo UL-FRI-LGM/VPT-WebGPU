@@ -22,16 +22,17 @@ constructor() {
     super();
 
     this.changeListener = this.changeListener.bind(this);
+    this.selectBump =  this.selectBump.bind(this);
 
     this.shadow = this.attachShadow({ mode: 'open' });
     this.shadow.appendChild(template.content.cloneNode(true));
     this.binds = DOMUtils.bind(this.shadow);
 
     Object.assign(this, {
-        width                  : 256,
-        height                 : 256,
-        transferFunctionWidth  : 256,
-        transferFunctionHeight : 256,
+        width                  : 230,
+        height                 : 230,
+        transferFunctionWidth  : 230,
+        transferFunctionHeight : 230,
         scaleSpeed             : 0.003
     });
 
@@ -58,31 +59,22 @@ constructor() {
     gl.useProgram(program);
 
     this.bumps = [];
-    this.binds.addBump.addEventListener('click', e => {
-        this.addBump();
-    });
-    this.binds.removeSelectedBump.addEventListener('click', e => {
-        this.removeSelectedBump();
-    });
-    this.binds.removeAllBumps.addEventListener('click', e => {
-        this.removeAllBumps();
-    });
 
-    this.binds.color.addEventListener('change', this.changeListener);
-    this.binds.alpha.addEventListener('change', this.changeListener);
+ 
 
-    this.binds.load.addEventListener('click', e => {
-        CommonUtils.readTextFile(data => {
-            this.bumps = JSON.parse(data);
-            this.render();
-            this._rebuildHandles();
-            this.dispatchEvent(new Event('change'));
-        });
-    });
+}
 
-    this.binds.save.addEventListener('click', e => {
-        CommonUtils.downloadJSON(this.bumps, 'TransferFunction.json');
+load() {
+    CommonUtils.readTextFile(data => {
+        this.bumps = JSON.parse(data);
+        this.render();
+        this._rebuildHandles();
+        this.dispatchEvent(new Event('change'));
     });
+}
+
+save() {
+    CommonUtils.downloadJSON(this.bumps, 'TransferFunction.json');
 }
 
 destroy() {
@@ -233,10 +225,13 @@ selectBump(index) {
             handle.classList.remove('selected');
         }
     }
-
+  
     const color = this.bumps[index].color;
-    this.binds.color.value = CommonUtils.rgb2hex([color.r, color.g, color.b]);
-    this.binds.alpha.value = color.a;
+    const bumpcolor = CommonUtils.rgb2hex([color.r, color.g, color.b]);
+    const bumpalpha = color.a;
+    this.dispatchEvent(new CustomEvent('changeColorAlpha', {
+        detail: { bumpcolor , bumpalpha }
+    }));
 }
 
 getSelectedBumpIndex() {
@@ -248,11 +243,11 @@ getSelectedBumpIndex() {
     }
 }
 
-changeListener() {
+changeListener(colorIn, alphaIn) {
     const selectedBump = this.shadow.querySelector('.bump.selected');
     const index = parseInt(selectedBump.dataset.index);
-    const color = CommonUtils.hex2rgb(this.binds.color.value);
-    const alpha = parseFloat(this.binds.alpha.value);
+    const color = CommonUtils.hex2rgb(colorIn);
+    const alpha = alphaIn;
     this.bumps[index].color.r = color[0];
     this.bumps[index].color.g = color[1];
     this.bumps[index].color.b = color[2];

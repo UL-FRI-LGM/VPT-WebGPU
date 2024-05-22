@@ -1,28 +1,34 @@
-import { DOMUtils } from '../../utils/DOMUtils.js';
 import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
 import * as TweakpaneFileImportPlugin from 'https://unpkg.com/tweakpane-plugin-file-import@1.0.1/dist/tweakpane-plugin-file-import.js';
+import * as CanvasPanePlugin from '../../../plugins/dist/canvas_pane_plugin.js';
+import { TransferFunction } from '../../ui/UI.js';
+import { DOMUtils } from '../../utils/DOMUtils.js';
 
 
-const template = document.createElement('template');
+/* const template = document.createElement('template');
 template.innerHTML = await fetch(new URL('./TweakDialog.html', import.meta.url))
-    .then(response => response.text());
+    .then(response => response.text()); */
 
 export class TweakDialog extends EventTarget {
 
 constructor () {
     super()
 
+    this.panecontainer = document.getElementById('pane-container');
+
     this.pane = new Pane({
-        container: document.getElementById('pane-container'),
+        container: this.panecontainer,
         title: 'Volumetric Path Tracing',
     });
 
     this.pane.registerPlugin(TweakpaneFileImportPlugin);
+    this.pane.registerPlugin(CanvasPanePlugin);
 
     this.rendererBindings = [];
     this.toneMapperBindings = [];
 
     this.PARAMS = {
+        bumps: [],
         volumeURL: 'http://',
         volumeFile: '',
         envmapFile: '',
@@ -272,7 +278,7 @@ _initRecordFolder() {
             {text: 'Video', value: 'video'},
         ],
         value: 'images',
-    })
+    });
     this.animationFolder.addButton({
         title: 'record',
     }).on('click', () =>  {
@@ -280,9 +286,77 @@ _initRecordFolder() {
     })
 
 }
+
+_updateTransferFunction() {
+}
+_initTransferFunction() {
+    console.log("canvas function");
+
+    this.PARAMS['canvas'] = "";
+    this.transferFolder.addBinding(this.PARAMS, 'canvas', {
+        view: 'canvas-pane',
+        label: null,
+    });
+    this.PARAMS['tf_alpha'] = 1;
+    this.PARAMS['tf_color'] = "#FF0000";
+
+    const transferObject = new TransferFunction;
+    transferObject.setAttribute('bind', 'transferFunction');
+    document.getElementsByClassName("tweakpaneCanvas")[0].appendChild(transferObject);
+
+   
+
+    this.transferFolder.addButton({
+        title: 'Add bump',
+    }).on('click', () =>  {
+        transferObject.addBump();
+    })
+    this.transferFolder.addButton({
+        title: 'Remove selected bump',
+    }).on('click', () =>  {
+        transferObject.removeSelectedBump();
+    })
+    this.transferFolder.addButton({
+        title: 'Remove all bumps',
+    }).on('click', () =>  {
+        transferObject.removeAllBumps();
+    })
+    this.transferFolder.addBinding(this.PARAMS, 'tf_alpha', {
+        label: 'Alpha',
+        max: 1,
+        min: 0,
+    }).on('change', () =>  {
+        transferObject.changeListener(this.PARAMS['tf_color'], this.PARAMS['tf_alpha']);
+    })
+    this.transferFolder.addBinding(this.PARAMS, 'tf_color', {
+        label: 'Color',
+        view: 'Color',
+        picker: 'inline',
+    }).on('change', () =>  {
+        transferObject.changeListener(this.PARAMS['tf_color'], this.PARAMS['tf_alpha']);
+    })
+
+    this.transferFolder.addButton({title: 'Save'}).on('click', () => {
+        transferObject.save();
+    })
+    
+    this.transferFolder.addButton({title: 'Load'}).on('click', () => {
+        transferObject.load();
+    })
+    
+    
+    this.transferfunction = document.getElementsByClassName("tweakpaneCanvas")[0];
+
+    transferObject.addEventListener('changeColorAlpha', e => {
+        this.PARAMS['tf_alpha'] = e.detail.bumpalpha
+        this.PARAMS['tf_color'] = e.detail.bumpcolor
+        this.pane.refresh();
+    });
+}
+
+
 _initPaneMain() {
 
-    //this.mainfolder = this.pane.addFolder({title: ""});
     this.tabs = this.pane.addTab({
         pages: [
             {title: 'Data'},
@@ -316,6 +390,9 @@ _initPaneMain() {
     rendererFolderList.on('change', (event) => {
         this._eventDispatcher("renderer", event.value)
     });
+    this.transferFolder = this.tabs.pages[1].addFolder({title: 'Transfer Function'});
+    this.transferFolder.hidden = true;
+
     //Tone Mapper folder list
     this.toneMapperFolder = this.tabs.pages[1].addFolder({title: 'Tone Mapper'});
     const toneMapperFolderList = this.toneMapperFolder.addBlade({
@@ -344,6 +421,7 @@ _initPaneMain() {
 }
 
 _eventDispatcher(eventType, data) {
+    console.log(this.PARAMS);
     if (data === undefined || data == null) {
         return;
     } 
@@ -364,7 +442,7 @@ _updateRendererFolder(properties) {
         this.rendererBindings[binding].dispose();
     }
 
-
+    var hasTransferFunction = false;
     for (var property of properties) {
         switch (property.type) {
            /*  TODO : monitor changes on these bindings, use on('change',  (event) => {
@@ -385,10 +463,21 @@ _updateRendererFolder(properties) {
                 }));
                 break;
             case 'transfer-function':
-                //TODO: implement transfer function widget
+                hasTransferFunction = true;
+                if (this.transferfunction == undefined) {
+                    this._initTransferFunction();
+                }
                 break;
             //TODO maybe more cases?
         }
+    }
+    if (hasTransferFunction) {
+        this.transferFolder.hidden = false;
+        return this.transferfunction;
+    } else {
+        this.transferFolder.hidden = true;
+        //returns null if no transfer function is required for given renderer
+        return null;
     }
 }
 
@@ -421,11 +510,11 @@ _updateToneMapperFolder(properties) {
             }));
             break;
         case 'transfer-function':
-            //TODO: implement transfer function widget
+            //#TODO
             break;
-        //TODO maybe more cases?
         }
     }
+    
 }
 
 
