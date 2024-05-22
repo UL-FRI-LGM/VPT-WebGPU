@@ -287,6 +287,10 @@ _initRecordFolder() {
 
 }
 
+_changeTheme(theme) {
+    document.getElementById("tweakpaneThemeLink").href = theme;
+}
+
 _updateTransferFunction() {
 }
 _initTransferFunction() {
@@ -416,6 +420,19 @@ _initPaneMain() {
         this._eventDispatcher("toneMapper", event.value)
     });
 
+    const themeSelect = this.tabs.pages[2].addBlade({
+        view: 'list',
+        label: 'Theme',
+        options: [
+            {text: "Light", value: "css/tweakpaneLight.css"},
+            {text: "Dark",  value: "css/tweakpaneDark.css" },
+            {text: "Iceberg",  value: "css/tweakpaneIceberg.css" },
+        ],
+        value: "css/tweakpaneDark.css",
+    })
+    themeSelect.on('change', (e) => {
+        this._changeTheme(e.value);
+    })
     this._initContextFolder();
     this._initRecordFolder();
 }
