@@ -19,13 +19,8 @@ constructor() {
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
 
-    this.binds.rendererSelect.addEventListener('change', this._handleRendererChange);
-    this.binds.toneMapperSelect.addEventListener('change', this._handleToneMapperChange);
-
     const about = DOMUtils.instantiate(aboutTemplate);
-    this.binds.about.appendChild(about);
 
-    this.binds.record.addEventListener('click', this._handleRecordAnimation);
 }
 
 getVolumeLoadContainer() {

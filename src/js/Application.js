@@ -5,9 +5,6 @@ import './ui/UI.js';
 import { LoaderFactory } from './loaders/LoaderFactory.js';
 import { ReaderFactory } from './readers/ReaderFactory.js';
 
-import { MainDialog } from './dialogs/MainDialog/MainDialog.js';
-import { VolumeLoadDialog } from './dialogs/VolumeLoadDialog/VolumeLoadDialog.js';
-import { EnvmapLoadDialog } from './dialogs/EnvmapLoadDialog/EnvmapLoadDialog.js';
 import { TweakDialog } from './dialogs/TweakPaneDialog/TweakDialog.js';
 import { DataMidlayer } from './DataMidlayer.js';
 import { SettingsMidlayer } from './SettingsMidlayer.js';
@@ -40,16 +37,6 @@ constructor() {
     document.body.addEventListener('dragover', e => e.preventDefault());
     document.body.addEventListener('drop', this._handleFileDrop);
 
-    this.mainDialog = new MainDialog();
-    this.binds.sidebarContainer.appendChild(this.mainDialog.object);
-
-    this.volumeLoadDialog = new VolumeLoadDialog();
-    this.mainDialog.getVolumeLoadContainer().appendChild(this.volumeLoadDialog.object);
-    this.volumeLoadDialog.addEventListener('load', this._handleVolumeLoad);
-
-    this.envmapLoadDialog = new EnvmapLoadDialog();
-    this.mainDialog.getEnvmapLoadContainer().appendChild(this.envmapLoadDialog.object);
-    this.envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
 
     this.tweakDialog = new TweakDialog();
 
@@ -59,15 +46,20 @@ constructor() {
 
     this.settingsMidlayer = new SettingsMidlayer(this.tweakDialog);
     this.settingsMidlayer.addEventListener('changeRenderer', this._handleRendererChange);
+    this.settingsMidlayer.addEventListener('changeRendererProperty', e => {
+        const name = e.detail.type;
+        const value = e.detail.value;
+        const renderer = this.renderingContext.renderer;
+        renderer[name] = value;
+        renderer.dispatchEvent(new CustomEvent('change', {
+            detail: { name, value }
+        }));
+    });
     this.settingsMidlayer.addEventListener('changeToneMapper', this._handleToneMapperChange);
-    //this.settingsMidlayer.addEventListener()
-    //this.tweakDialog = new TweakDialog();
-    //this.mainDialog.getTweakDialogContainer().appendChild(this.tweakDialog.object);
+
 
     this.renderingContextDialog = new RenderingContextDialog();
-    this.mainDialog.getRenderingContextSettingsContainer().appendChild(
-            this.renderingContextDialog.object);
-    
+
     this.settingsMidlayer.addEventListener('resolution', e => { 
         this.renderingContext.resolution = e.detail.value;;
     });
@@ -108,14 +100,10 @@ constructor() {
         this.mainDialog.binds.animationProgress.value = e.detail;
     });
 
-    this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
-    this.mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
-
     
     this._handleRendererChange();
     this._handleToneMapperChange();
 
-    this.mainDialog.addEventListener('recordanimation', this._handleRecordAnimation);
     ////////////////////////////////////////////////////////////////
     }); // TODO: Remove
 }
@@ -153,6 +141,7 @@ _handleRendererChange(e) {
 
     var which;
     if (e == null) {    
+        //default renderer
         which = 'eam';
     } else {
         which = e.detail.value;
@@ -160,20 +149,8 @@ _handleRendererChange(e) {
     this.renderingContext.chooseRenderer(which);
     const renderer = this.renderingContext.renderer;
     const object = this.settingsMidlayer._updateTweakpaneUI('renderer', renderer.properties);
-    
-    if (object != null && object != undefined) {
-        const binds = DOMUtils.bind(object);
-        for (const name in binds) {
-            binds[name].addEventListener('change', e => {
-                const value = binds[name].value;
-                renderer[name] = value;
-                renderer.dispatchEvent(new CustomEvent('change', {
-                    detail: { name, value }
-                }));
-            });
-        }
-    }
-}
+
+} 
 
 _handleToneMapperChange(e) {
     if (this.toneMapperDialog) {
@@ -203,8 +180,8 @@ _handleToneMapperChange(e) {
             }));
         });
     }
-    const container = this.mainDialog.getToneMapperSettingsContainer();
-    container.appendChild(this.toneMapperDialog);
+    //const container = this.mainDialog.getToneMapperSettingsContainer();
+    //container.appendChild(this.toneMapperDialog);
 }
 
 async _handleVolumeLoad(e) {

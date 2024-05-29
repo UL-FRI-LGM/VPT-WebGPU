@@ -292,14 +292,11 @@ _initRecordFolder() {
 }
 
 _changeTheme(theme) {
+    // to add a theme, add a new .css file and update list.
     document.getElementById("tweakpaneThemeLink").href = theme;
 }
 
-_updateTransferFunction() {
-}
 _initTransferFunction() {
-    console.log("canvas function");
-
     this.PARAMS['canvas'] = "";
     this.transferFolder.addBinding(this.PARAMS, 'canvas', {
         view: 'canvas-pane',
@@ -353,13 +350,20 @@ _initTransferFunction() {
     })
     
     
-    this.transferfunction = document.getElementsByClassName("tweakpaneCanvas")[0];
+    this.transferFunction = document.getElementsByClassName("tweakpaneCanvas")[0];
 
     transferObject.addEventListener('changeColorAlpha', e => {
         this.PARAMS['tf_alpha'] = e.detail.bumpalpha
         this.PARAMS['tf_color'] = e.detail.bumpcolor
         this.pane.refresh();
     });
+
+    const binds = DOMUtils.bind(this.transferFunction);
+    for (const name in binds) {
+        binds[name].addEventListener('change', e => {
+            this._eventDispatcher("rendererChange", binds[name].value, name);
+        });
+    }
 }
 
 
@@ -396,7 +400,7 @@ _initPaneMain() {
         value: 'eam',
     });
     rendererFolderList.on('change', (event) => {
-        this._eventDispatcher("renderer", event.value)
+        this._eventDispatcher("rendererChange", event.value)
     });
     this.transferFolder = this.tabs.pages[1].addFolder({title: 'Transfer Function'});
     this.transferFolder.hidden = true;
@@ -421,7 +425,7 @@ _initPaneMain() {
         value: 'artistic',
     });
     toneMapperFolderList.on('change', (event) => {
-        this._eventDispatcher("toneMapper", event.value)
+        this._eventDispatcher("toneMapperChange", event.value)
     });
 
     const themeSelect = this.tabs.pages[2].addBlade({
@@ -441,16 +445,16 @@ _initPaneMain() {
     this._initRecordFolder();
 }
 
-_eventDispatcher(eventType, data) {
-    console.log(this.PARAMS);
+_eventDispatcher(eventType, data, parameterName = null) {
+    //console.log("Received type: ", eventType, " data is: ", data, "parameterName is: ", parameterName);
     if (data === undefined || data == null) {
         return;
     } 
-    //console.log(eventType, ": ", data);
     this.dispatchEvent(new CustomEvent('settingsChange', {
         detail: {
             type  : eventType,
             value : data,
+            parameterName : parameterName,
         }
     }));
 }
@@ -465,41 +469,46 @@ _updateRendererFolder(properties) {
 
     var hasTransferFunction = false;
     for (var property of properties) {
-        switch (property.type) {
+        //prefix params with "renderer_"
+        var parameterGlobalName = "renderer_" + property.name;
+        if (property.type == "spinner") {
            /*  TODO : monitor changes on these bindings, use on('change',  (event) => {
-                 this.dispatchEvent(new CustomEvent(rendererChange, {})) } */
-            case 'spinner': 
-                this.PARAMS[property.name] = property.value;
-                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, property.name, {
+                 this.dispatchEvent(new CustomEvent(rendererChange, {})) }); */
+                const parameterName = property.name
+                this.PARAMS[parameterGlobalName] = property.value;
+                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, parameterGlobalName, {
                     label: property.label,
                     ...(property.min  !== null &&  { min: property.min   }),  
                     ...(property.max  !== null &&  { max: property.max   }),  
                     ...(property.step !== null &&  { step: property.step }),  
-                }));
-                break;
-            case 'checkbox':
-                this.PARAMS[property.name] = property.value;
-                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, property.name, {
+                })).on('change',  (event) => {
+                    this._eventDispatcher("rendererChange", event.value, parameterName);
+                });
+        } else if (property.type ==  'checkbox') {
+                const parameterName = property.name
+                this.PARAMS[parameterGlobalName] = property.value;
+                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, parameterGlobalName, {
                     label: property.label,
-                }));
-                break;
-            case 'transfer-function':
+                })).on('change',  (event) => {
+                    console.log(property);
+                    this._eventDispatcher("rendererChange", event.value, parameterName);
+                });
+        } else if (property.type ==  "transfer-function") {
                 hasTransferFunction = true;
-                if (this.transferfunction == undefined) {
-                    this._initTransferFunction();
+                if (this.transferFunction == undefined) {
+                    this.TransferFunction = this._initTransferFunction();
                 }
-                break;
-            //TODO maybe more cases?
         }
+
     }
+
+    //set visibility
     if (hasTransferFunction) {
         this.transferFolder.hidden = false;
-        return this.transferfunction;
     } else {
         this.transferFolder.hidden = true;
-        //returns null if no transfer function is required for given renderer
-        return null;
     }
+
 }
 
 _updateToneMapperFolder(properties) {

@@ -21,15 +21,27 @@ export class SettingsMidlayer extends EventTarget {
 
     _handleEvent(e) {
         switch (e.detail.type) {
-            case 'renderer':
-                this.dispatchEvent(new CustomEvent('changeRenderer', {
-                    detail: {
-                        type        : 'renderer',
-                        value       : e.detail.value,
-                    }
-                }));
+            case 'rendererChange':
+                if (e.detail.parameterName == null) {
+                    this.dispatchEvent(new CustomEvent('changeRenderer', {
+                        detail: {
+                            type        : 'renderer',
+                            value       : e.detail.value,
+                        }
+                    }));
+                } else {
+                    this.dispatchEvent(new CustomEvent('changeRendererProperty', {
+                        detail: {
+                            type : e.detail.parameterName,
+                            value : e.detail.value,
+                        }
+                    })
+
+                    )
+                    // posreduj spremembo podatkov: ustvari event ki ga renderer prepozna.
+                }
                 break;
-            case 'toneMapper':
+            case 'toneMapperChange':
                 this.dispatchEvent(new CustomEvent('changeToneMapper', {
                     detail: {
                         type        : 'toneMapper',
