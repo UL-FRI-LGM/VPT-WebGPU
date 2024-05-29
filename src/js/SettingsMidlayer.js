@@ -20,6 +20,7 @@ export class SettingsMidlayer extends EventTarget {
 
 
     _handleEvent(e) {
+        //too many events, optimize by adding function to application.js and calling those instead
         switch (e.detail.type) {
             case 'rendererChange':
                 if (e.detail.parameterName == null) {
@@ -35,19 +36,25 @@ export class SettingsMidlayer extends EventTarget {
                             type : e.detail.parameterName,
                             value : e.detail.value,
                         }
-                    })
-
-                    )
-                    // posreduj spremembo podatkov: ustvari event ki ga renderer prepozna.
+                    }));
                 }
                 break;
             case 'toneMapperChange':
-                this.dispatchEvent(new CustomEvent('changeToneMapper', {
-                    detail: {
-                        type        : 'toneMapper',
-                        value       : e.detail.value,
-                    }
-                }));
+                 if (e.detail.parameterName == null) {
+                    this.dispatchEvent(new CustomEvent('changeToneMapper', {
+                        detail: {
+                            type        : 'toneMapper',
+                            value       : e.detail.value,
+                        }
+                    }));
+                } else {
+                    this.dispatchEvent(new CustomEvent('changeToneMapperProperty', {
+                        detail: {
+                            type : e.detail.parameterName,
+                            value : e.detail.value,
+                        }
+                    }));
+                }
                 break;
             case 'fullscreen':
                 this.dispatchEvent(new CustomEvent('fullscreen', {
@@ -56,6 +63,7 @@ export class SettingsMidlayer extends EventTarget {
                         value : e.detail.value,
                     }
                 }));
+                break;
             case 'resolution':
                 this.dispatchEvent(new CustomEvent('resolution', {
                     detail: {
@@ -63,6 +71,27 @@ export class SettingsMidlayer extends EventTarget {
                         value : e.detail.value,
                     }
                 }));
+                break;
+            case 'filter':
+                this.dispatchEvent(new CustomEvent('filter', {
+                    detail: {
+                        type : 'filter',
+                        value : e.detail.value,
+                    }
+                }));
+                break;
+            case 'context_trs':
+                const params = this.TweakDialog._returnPARAMS();
+
+                this.dispatchEvent(new CustomEvent('trs', {
+                    detail: {
+                        type : 'trs',
+                        translation : params["translation"], 
+                        rotation : params["rotation"], 
+                        scale : params["scale"], 
+                    }
+                }));
+                break;
         }
     }
 

@@ -244,7 +244,11 @@ getSelectedBumpIndex() {
 }
 
 changeListener(colorIn, alphaIn) {
+
     const selectedBump = this.shadow.querySelector('.bump.selected');
+    if(selectedBump == null || selectedBump == undefined) {
+        return;
+    }
     const index = parseInt(selectedBump.dataset.index);
     const color = CommonUtils.hex2rgb(colorIn);
     const alpha = alphaIn;

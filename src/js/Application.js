@@ -55,36 +55,38 @@ constructor() {
             detail: { name, value }
         }));
     });
+    
     this.settingsMidlayer.addEventListener('changeToneMapper', this._handleToneMapperChange);
-
-
-    this.renderingContextDialog = new RenderingContextDialog();
-
+    this.settingsMidlayer.addEventListener('changeToneMapperProperty', e => {
+        const name = e.detail.type;
+        const value = e.detail.value;
+        const toneMapper = this.renderingContext.toneMapper;
+        toneMapper[name] = value;
+        toneMapper.dispatchEvent(new CustomEvent('change', {
+            detail: { name, value }
+        }));
+    });
     this.settingsMidlayer.addEventListener('resolution', e => { 
-        this.renderingContext.resolution = e.detail.value;;
+        this.renderingContext.resolution = e.detail.value;
     });
-    this.renderingContextDialog.addEventListener('resolution', e => {
-        const resolution = this.renderingContextDialog.resolution;
-        this.renderingContext.resolution = resolution;
+
+    this.settingsMidlayer.addEventListener('trs', e => { 
+        const values = e.detail
+        const t = this.values.translation;
+        const r = this.values.rotation;
+        const s = this.values.scale;
+        //TODO fix model transform
     });
-    this.renderingContextDialog.addEventListener('transformation', e => {
-        const t = this.renderingContextDialog.translation;
-        const r = this.renderingContextDialog.rotation;
-        const s = this.renderingContextDialog.scale;
-        // TODO fix model transform
-    });
-    this.renderingContextDialog.addEventListener('filter', e => {
-        const filter = this.renderingContextDialog.filter;
-        this.renderingContext.setFilter(filter);
-    });
+
+    this.settingsMidlayer.addEventListener('filter', e => {
+        console.log("filter");
+        this.renderingContext.setFilter(e.detail.value);
+    })
+
     this.settingsMidlayer.addEventListener('fullscreen', e => { 
         this.renderingContext.canvas.classList.toggle('fullscreen', e.detail.value);
     });
-    this.renderingContextDialog.addEventListener('fullscreen', e => {
-        console.log(this.renderingContextDialog.fullscreen);
-        this.renderingContext.canvas.classList.toggle('fullscreen',
-            this.renderingContextDialog.fullscreen);
-    });
+
 
     new ResizeObserver(entries => {
         const size = entries[0].contentBoxSize[0];
@@ -92,14 +94,15 @@ constructor() {
         camera.aspect = size.inlineSize / size.blockSize;
     }).observe(this.renderingContext.canvas);
 
-    this.renderingContext.addEventListener('progress', e => {
+    //TODO: REPLACE!!! ////////////
+   /*  this.renderingContext.addEventListener('progress', e => {
         this.volumeLoadDialog.binds.loadProgress.value = e.detail;
     });
 
     this.renderingContext.addEventListener('animationprogress', e => {
         this.mainDialog.binds.animationProgress.value = e.detail;
     });
-
+ */
     
     this._handleRendererChange();
     this._handleToneMapperChange();
@@ -135,10 +138,6 @@ _handleFileDrop(e) {
 
 
 _handleRendererChange(e) {
-    if (this.rendererDialog) {
-        this.rendererDialog.remove();
-    }
-
     var which;
     if (e == null) {    
         //default renderer
@@ -153,35 +152,17 @@ _handleRendererChange(e) {
 } 
 
 _handleToneMapperChange(e) {
-    if (this.toneMapperDialog) {
-        this.toneMapperDialog.remove();
-    }
-
     var which;
     if (e == null) {    
+        //default tone mapper
         which = 'artistic';
     } else {
         which = e.detail.value;
     }
-    //const which = e.detail.value;
     this.renderingContext.chooseToneMapper(which);
     const toneMapper = this.renderingContext.toneMapper;
-    const object = DialogConstructor.construct(toneMapper.properties);
     this.settingsMidlayer._updateTweakpaneUI('toneMapper', toneMapper.properties);
-    //TODO use tonemapper properties to contact settingsmidlayer, providing options in the UI
-    const binds = DOMUtils.bind(object);
-    this.toneMapperDialog = object;
-    for (const name in binds) {
-        binds[name].addEventListener('change', e => {
-            const value = binds[name].value;
-            toneMapper[name] = value;
-            toneMapper.dispatchEvent(new CustomEvent('change', {
-                detail: { name, value }
-            }));
-        });
-    }
-    //const container = this.mainDialog.getToneMapperSettingsContainer();
-    //container.appendChild(this.toneMapperDialog);
+
 }
 
 async _handleVolumeLoad(e) {

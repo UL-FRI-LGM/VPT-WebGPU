@@ -229,7 +229,7 @@ _initContextFolder() {
     this.PARAMS['filter'] = true;
     this.contextFolder.addBinding(this.PARAMS, 'filter', {
         label : 'Linear filter',
-    });
+    }).on('change', (event) => { this._eventDispatcher('filter', event.value)});
     this.PARAMS['resolution'] = 512;
     this.contextFolder.addBinding(this.PARAMS, 'resolution', {
         min : 1,
@@ -239,15 +239,15 @@ _initContextFolder() {
     this.PARAMS['translation'] = {x: 0, y: 0, z: 0};
     this.contextFolder.addBinding(this.PARAMS, 'translation', {
         label :  "Translation"
-    });
+    }).on('change', (event) => { this._eventDispatcher('context_trs', event.value)});
     this.PARAMS['rotation'] = {x: 0, y: 0, z: 0};
     this.contextFolder.addBinding(this.PARAMS, 'rotation', {
         label :  "Rotation"
-    });
+    }).on('change', (event) => { this._eventDispatcher('context_trs', event.value)});
     this.PARAMS['scale'] = {x: 1, y: 1, z: 1};
     this.contextFolder.addBinding(this.PARAMS, 'scale', {
         label :  "Scale"
-    });
+    }).on('change', (event) => { this._eventDispatcher('context_trs', event.value)});
 
 }
 
@@ -472,11 +472,12 @@ _updateRendererFolder(properties) {
         //prefix params with "renderer_"
         var parameterGlobalName = "renderer_" + property.name;
         if (property.type == "spinner") {
-           /*  TODO : monitor changes on these bindings, use on('change',  (event) => {
-                 this.dispatchEvent(new CustomEvent(rendererChange, {})) }); */
                 const parameterName = property.name
                 this.PARAMS[parameterGlobalName] = property.value;
-                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, parameterGlobalName, {
+                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(
+                    this.PARAMS, 
+                    parameterGlobalName, 
+                    {
                     label: property.label,
                     ...(property.min  !== null &&  { min: property.min   }),  
                     ...(property.max  !== null &&  { max: property.max   }),  
@@ -484,15 +485,20 @@ _updateRendererFolder(properties) {
                 })).on('change',  (event) => {
                     this._eventDispatcher("rendererChange", event.value, parameterName);
                 });
+
         } else if (property.type ==  'checkbox') {
                 const parameterName = property.name
                 this.PARAMS[parameterGlobalName] = property.value;
-                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(this.PARAMS, parameterGlobalName, {
+                this.rendererBindings[property.name] = (this.rendererFolder.addBinding(
+                    this.PARAMS, 
+                    parameterGlobalName, 
+                    {
                     label: property.label,
                 })).on('change',  (event) => {
                     console.log(property);
                     this._eventDispatcher("rendererChange", event.value, parameterName);
                 });
+
         } else if (property.type ==  "transfer-function") {
                 hasTransferFunction = true;
                 if (this.transferFunction == undefined) {
@@ -519,32 +525,40 @@ _updateToneMapperFolder(properties) {
         this.toneMapperBindings[binding].dispose();
     }
 
-    //this.rendererFolder.blades.dispose();
-    //console.log("tweakpane received data : ", properties );
+
     for (var property of properties) {
-    switch (property.type) {
-        case 'slider':
-        case 'spinner': 
-            this.PARAMS[property.name] = property.value;
-            this.toneMapperBindings[property.name] = (this.toneMapperFolder.addBinding(this.PARAMS, property.name, {
+        var parameterGlobalName = "toneMapper_" + property.name;
+        if (property.type == "spinner" || property.type == "slider") {
+            const parameterName = property.name
+                this.PARAMS[parameterGlobalName] = property.value;
+                this.toneMapperBindings[parameterName] = (this.toneMapperFolder.addBinding(
+                    this.PARAMS, 
+                    parameterGlobalName, 
+                    {
+                    label: property.label,
+                    ...(property.min  !== null &&  { min: property.min   }),  
+                    ...(property.max  !== null &&  { max: property.max   }),  
+                    ...(property.step !== null &&  { step: property.step }),  
+                })).on('change',  (event) => {
+                    console.log(property);
+                    this._eventDispatcher("toneMapperChange", event.value, parameterName);
+                });
+        }
+        else if (property.type == "checkbox") {
+            const parameterName = property.name
+            this.PARAMS[parameterGlobalName] = property.value;
+            this.toneMapperBindings[parameterName] = (this.toneMapperFolder.addBinding(
+                this.PARAMS, 
+                parameterGlobalName, {
                 label: property.label,
-                ...(property.min  !== null &&  { min: property.min   }),  
-                ...(property.max  !== null &&  { max: property.max   }),  
-                ...(property.step !== null &&  { step: property.step }),  
-            }));
-            break;
-        case 'checkbox':
-            this.PARAMS[property.name] = property.value;
-            this.toneMapperBindings[property.name] = (this.toneMapperFolder.addBinding(this.PARAMS, property.name, {
-                label: property.label,
-            }));
-            break;
-        case 'transfer-function':
-            //#TODO
-            break;
+            })).on('change',  (event) => {
+                console.log(property);
+                this._eventDispatcher("toneMapperChange", event.value, parameterName);
+            });
+                    
+        
         }
     }
-    
 }
 
 
