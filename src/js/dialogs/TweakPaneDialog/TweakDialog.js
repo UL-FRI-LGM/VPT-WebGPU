@@ -3,6 +3,7 @@ import * as TweakpaneFileImportPlugin from 'https://unpkg.com/tweakpane-plugin-f
 import * as CanvasPanePlugin from '../../../plugins/dist/canvas_pane_plugin.js';
 import { TransferFunction } from '../../ui/UI.js';
 import { DOMUtils } from '../../utils/DOMUtils.js';
+import { Draggable } from '../../Draggable.js';
 
 
 /* const template = document.createElement('template');
@@ -20,6 +21,9 @@ constructor () {
         container: this.panecontainer,
         title: 'Volumetric Path Tracing',
     });
+
+    //grdo ampak nardi stvar draggable?
+    //new Draggable(document.querySelector('.tp-dfwv'), document.querySelector('.tp-dfwv'));
 
     this.pane.registerPlugin(TweakpaneFileImportPlugin);
     this.pane.registerPlugin(CanvasPanePlugin);
