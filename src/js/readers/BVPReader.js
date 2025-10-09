@@ -16,6 +16,7 @@ async readMetadata() {
     const jsonString = decoder.decode(data);
     const json = JSON.parse(jsonString);
     this._metadata = json;
+    console.log(this._metadata);
     return this._metadata;
 }
 
@@ -29,3 +30,4 @@ async readBlock(block) {
 }
 
 }
+

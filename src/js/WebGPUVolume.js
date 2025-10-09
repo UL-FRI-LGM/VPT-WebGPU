@@ -28,6 +28,7 @@ async readMetadata() {
     if (!this.metadata) {
         this.metadata = await this._reader.readMetadata();
     }
+    console.log(this.metadata);
     return this.metadata;
 }
 
@@ -38,7 +39,15 @@ async readModality(modalityName) {
         await this.readMetadata();
     }
 
-    const modality = this.metadata.modalities.find(modality => modality.name === modalityName);
+    console.log(this.metadata.modalities[0]);
+
+    // const modality = this.metadata.modalities.find(modality => modality.name === modalityName);
+    // if (!modality) {
+    //     throw new Error(`Modality '${modalityName}' does not exist`);
+    // }
+
+    const modality = this.metadata.modalities[0];
+    var modalityName = modality.name;
     if (!modality) {
         throw new Error(`Modality '${modalityName}' does not exist`);
     }
@@ -47,7 +56,7 @@ async readModality(modalityName) {
 
     const { width, height, depth } = modality.dimensions;
     const { format, internalFormat, type } = modality;
-    
+
     const device = this._device;
     if (this.texture) {
         this.texture.destroy();
