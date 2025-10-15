@@ -25,6 +25,8 @@ struct Uniforms {
     steps: u32
 };
 
+// popravi binding
+
 @group(0) @binding(0) var uVolume: texture_3d<f32>;
 @group(0) @binding(1) var uVolumeSampler: sampler;
 @group(0) @binding(2) var uTransferFunction: texture_2d<f32>;
@@ -42,6 +44,7 @@ struct Uniforms {
 @group(0) @binding(13) var uRadianceSampler: sampler;
 
 @group(0) @binding(14) var<uniform> uniforms: Uniforms;
+
 
 const vertices = array<vec2f, 3>(
     vec2f(-1.0, -1.0),
@@ -87,12 +90,18 @@ fn resetPhoton(state: ptr<function, u32>, photon: ptr<function, Photon>, screenP
 
 fn sampleEnvironmentMap(d: vec3f) -> vec4f {
     let texCoord: vec2f = vec2f(atan2(d.x, -d.z), asin(-d.y) * 2.0) * INVPI * 0.5 + 0.5; // TODO: Why shouldn't y be negated here?
-    return textureSample(uEnvironment, uEnvironmentSampler, texCoord);
+    // return textureSample(uEnvironment, uEnvironmentSampler, texCoord);
+    return textureSampleLevel(uEnvironment, uEnvironmentSampler, texCoord, 0.0);
 }
-
+ 
 fn sampleVolumeColor(position: vec3f) -> vec4f {
-    let volumeSample: vec2f = textureSample(uVolume, uVolumeSampler, position).rg;
-    let transferSample: vec4f = textureSample(uTransferFunction, uTransferFunctionSampler, volumeSample);
+    let volumeSample1: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+    let volumeSample2: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).ba;
+
+    let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample1.y), min(volumeSample2.x, volumeSample2.y));
+    let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
+    // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+    // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
     return transferSample;
 }
 

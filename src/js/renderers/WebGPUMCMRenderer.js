@@ -72,6 +72,7 @@ constructor(device, volume, camera, environment, options = {}) {
 
     this._programs = WebGPU.buildShaderModules(device, SHADERS.renderers.MCM, MIXINS);
 
+    console.log(volume);
 
     this._integrateUniformBuffer = device.createBuffer({
         size: 96,
@@ -229,7 +230,7 @@ _resetFrame() {
     const device = this._device;
 
     // TODO: get model matrix from volume
-    const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    const modelMatrix = this._volume.getModelMatrix();
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 
@@ -243,7 +244,7 @@ _resetFrame() {
     device.queue.writeBuffer(this._resetUniformBuffer, 64, new Float32Array([
         1 / this._resolution, 1 / this._resolution, // uniforms.inverseResolution
         Math.random(),                              // uniforms.randSeed
-        0,                                          // uniforms.blur
+        0                                          // uniforms.blur
     ]));
 
     const bindGroup = device.createBindGroup({
@@ -319,7 +320,7 @@ _integrateFrame() {
     ]));
     device.queue.writeBuffer(this._integrateUniformBuffer, 88, new Uint32Array([
         this.bounces,                               // uniforms.bounces
-        this.steps                                  // uniforms.steps
+        this.steps                                 // uniforms.steps
     ]));
 
     const bindGroup = device.createBindGroup({
@@ -463,7 +464,7 @@ _getFrameBufferSpec() {
     return [{
         textureDescriptor: {
             size: [this._resolution, this._resolution],
-            format: "rgba32float",
+            format: "rgba16float",
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         },
         samplerDescriptor: {
@@ -477,7 +478,7 @@ _getAccumulationBufferSpec() {
     const positionBufferSpec = {
         textureDescriptor: {
             size: [this._resolution, this._resolution],
-            format: "rgba16float", // TODO: Change to rgba32float
+            format: "rgba16float", // TODO: Change to rgba32float - zakaj? dobim error color attachment bytes 64 exceed maximum 32, na rgba16float dela in očitno ne prekorači tega
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         },
         samplerDescriptor: {

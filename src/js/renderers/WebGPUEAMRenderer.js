@@ -155,7 +155,10 @@ _generateFrame() {
     const device = this._device;
 
     // TODO: get model matrix from volume
-    const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    // const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    // console.log(mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]));
+    // console.log(this._volume.getModelMatrix());
+    const modelMatrix = this._volume.getModelMatrix();
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 

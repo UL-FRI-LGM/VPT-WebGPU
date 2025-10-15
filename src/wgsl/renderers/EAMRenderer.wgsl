@@ -47,7 +47,15 @@ fn vertex_main(@builtin(vertex_index) vertexIndex : u32) -> VertexOut  {
 #include <intersectCube>
 
 fn sampleVolumeColor(position: vec3f) -> vec4f {
-    let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+
+    let volumeSample1: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+    let volumeSample2: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).ba;
+
+    // print(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rgba);
+
+    let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample1.y), min(volumeSample2.x, volumeSample2.y));
+
+    // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
     let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
     return transferSample;
 }

@@ -4,7 +4,7 @@ import { Component } from './Component.js';
 export class Transform extends Component {
 
 #localRotation = [0, 0, 0, 1];
-#localTranslation = [0, 0, 0];
+#localTranslation = [-0.5, -0.5, -0.5];
 #localScale = [1, 1, 1];
 
 constructor(node) {

@@ -557,6 +557,7 @@ function computeOutputData(volumeData, modality, volumeData2 = null, volumeData3
             throw new Error('Multi-channel requires format RGBA8');
         }
         console.log("tick is true");
+        modality.format = formats.RGBA8;
         return combineData([
             { data: volumeData, bytes: 1 },
             { data: volumeData2, bytes: 1 }, 
@@ -636,6 +637,70 @@ const gl = {
     RGBA8_SNORM                    : 0x8F97,
 };
 
+// const wgsl = {
+//     BYTE                           : 0x1400,
+//     UNSIGNED_BYTE                  : 0x1401,
+//     SHORT                          : 0x1402,
+//     UNSIGNED_SHORT                 : 0x1403,
+//     INT                            : 0x1404,
+//     UNSIGNED_INT                   : 0x1405,
+//     FLOAT                          : 0x1406,
+//     HALF_FLOAT                     : 0x140B,
+
+//     RED                            : 0x1903,
+//     RG                             : 0x8227,
+//     RGB                            : 0x1907,
+//     RGBA                           : 0x1908,
+//     RED_INTEGER                    : 0x8D94,
+//     RG_INTEGER                     : 0x8228,
+//     RGB_INTEGER                    : 0x8D98,
+//     RGBA_INTEGER                   : 0x8D99,
+
+//     RGB8                           : 0x8051,
+//     RGBA8                          : 0x8058,
+//     SRGB                           : 0x8C40,
+//     SRGB8                          : 0x8C41,
+//     RGBA32F                        : 0x8814,
+//     RGB32F                         : 0x8815,
+//     RGBA16F                        : 0x881A,
+//     RGB16F                         : 0x881B,
+//     RGB9_E5                        : 0x8C3D,
+//     RGBA32UI                       : 0x8D70,
+//     RGB32UI                        : 0x8D71,
+//     RGBA16UI                       : 0x8D76,
+//     RGB16UI                        : 0x8D77,
+//     RGBA8UI                        : 0x8D7C,
+//     RGB8UI                         : 0x8D7D,
+//     RGBA32I                        : 0x8D82,
+//     RGB32I                         : 0x8D83,
+//     RGBA16I                        : 0x8D88,
+//     RGB16I                         : 0x8D89,
+//     RGBA8I                         : 0x8D8E,
+//     RGB8I                          : 0x8D8F,
+//     R8                             : 0x8229,
+//     RG8                            : 0x822B,
+//     R16F                           : 0x822D,
+//     R32F                           : 0x822E,
+//     RG16F                          : 0x822F,
+//     RG32F                          : 0x8230,
+//     R8I                            : 0x8231,
+//     R8UI                           : 0x8232,
+//     R16I                           : 0x8233,
+//     R16UI                          : 0x8234,
+//     R32I                           : 0x8235,
+//     R32UI                          : 0x8236,
+//     RG8I                           : 0x8237,
+//     RG8UI                          : 0x8238,
+//     RG16I                          : 0x8239,
+//     RG16UI                         : 0x823A,
+//     RG32I                          : 0x823B,
+//     RG32UI                         : 0x823C,
+//     R8_SNORM                       : 0x8F94,
+//     RG8_SNORM                      : 0x8F95,
+//     RGB8_SNORM                     : 0x8F96,
+//     RGBA8_SNORM                    : 0x8F97,
+// };
+
 const formats = {
     R8: {
         format: gl.RED,
@@ -666,6 +731,37 @@ const formats = {
         bytesPerComponent: 4,
     }
 };
+
+// const wgsl_formats = {
+//     R8: {
+//         format: wgsl.RED,
+//         internalFormat: wgsl.R8,
+//         type: wgsl.UNSIGNED_BYTE,
+//         bytesPerVoxel: 1,
+//         bytesPerComponent: 1,
+//     },
+//     RG8: {
+//         format: wgsl.RG,
+//         internalFormat: wgsl.RG8,
+//         type: wgsl.UNSIGNED_BYTE,
+//         bytesPerVoxel: 2,
+//         bytesPerComponent: 1,
+//     },
+//     RGBA8: {
+//         format: wgsl.RGBA,
+//         internalFormat: wgsl.RGBA8,
+//         type: wgsl.UNSIGNED_BYTE,
+//         bytesPerVoxel: 4,
+//         bytesPerComponent: 1,
+//     },
+//     R32UI: {
+//         format: wgsl.RED_INTEGER,
+//         internalFormat: wgsl.R32UI,
+//         type: wgsl.UNSIGNED_INT,
+//         bytesPerVoxel: 4,
+//         bytesPerComponent: 4,
+//     }
+// };
 
 // -----------------------------------------------------------------------------
 // ----------------------------------- MAIN ------------------------------------
@@ -763,6 +859,10 @@ for (let i = 2; i < process.argv.length - 1; i++) {
         case '-f':
         case '--format':
             currentModality.format = formats[val];
+        
+        case '-fw':
+        case '--format-wgsl':
+            currentModality.format = wgsl_formats[val];
 
         case '-g':
         case '--gradient':

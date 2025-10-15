@@ -126,6 +126,10 @@ async setVolume(reader) {
     }
 }
 
+setVolMat(r, t, s) {
+    this.volume.setModelMatrix(r, t, s);
+}
+
 async setEnvironmentMap(image) {
     const imageBitmap = await createImageBitmap(image);
     if (this.environment.texture) {

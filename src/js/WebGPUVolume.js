@@ -1,4 +1,5 @@
 import { WebGL } from './WebGL.js';
+import { mat4, vec3, quat } from '../lib/gl-matrix-module.js';
 
 export class WebGPUVolume extends EventTarget {
 
@@ -13,6 +14,8 @@ constructor(device, reader, options = {}) {
     this.texture = null;
     this.textureSampler = null;
     this.modality = null;
+    // this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(0,0,0), vec3.normalize(vec3.create(), vec3.fromValues(1024, 1024, 30))); //hardcoded
+    this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(-0.5,-0.5,-0.5), vec3.fromValues(1,1,1)); //hardcoded
 }
 
 destroy() {
@@ -28,7 +31,7 @@ async readMetadata() {
     if (!this.metadata) {
         this.metadata = await this._reader.readMetadata();
     }
-    console.log(this.metadata);
+    // console.log(this.metadata);
     return this.metadata;
 }
 
@@ -39,7 +42,7 @@ async readModality(modalityName) {
         await this.readMetadata();
     }
 
-    console.log(this.metadata.modalities[0]);
+    // console.log(this.metadata.modalities[0]);
 
     // const modality = this.metadata.modalities.find(modality => modality.name === modalityName);
     // if (!modality) {
@@ -64,14 +67,13 @@ async readModality(modalityName) {
     this.texture = device.createTexture({
         size: [width, height, depth],
         dimension: "3d",
-        format: "r8unorm", // TODO
+        format: "rgba8unorm", // tle je format texture HARDCODAN
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
     this.textureSampler = device.createSampler({
         magFilter: "linear",
         minFilter: "linear"
     });
-
 
     for (const { index, position } of modality.placements) {
         const data = await this._reader.readBlock(index);
@@ -81,13 +83,14 @@ async readModality(modalityName) {
 
         device.queue.writeTexture(
             {
+                label: 'Volume Texture',
                 texture: this.texture,
                 origin: [x, y, z]
             },
             this._typize(data, type),
             {
                 offset: 0,
-                bytesPerRow: width * 1,
+                bytesPerRow: width * 4,
                 rowsPerImage: height
             },
             {
@@ -109,7 +112,7 @@ async load() {
 }
 
 _typize(data, type) {
-    return new Uint8Array(data); // TODO
+    return new Uint8ClampedArray(data); // TODO
 
     const gl = this._gl;
     switch (type) {
@@ -153,6 +156,14 @@ setFilter(filter) {
         magFilter: filter,
         minFilter: filter
     });
+}
+
+getModelMatrix() {
+    return this.modelmat;
+}
+
+setModelMatrix(r, t, s) {
+    this.modelmat = mat4.fromRotationTranslationScale(this.modelmat, r, t, s);
 }
 
 }

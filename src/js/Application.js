@@ -15,6 +15,8 @@ import { RenderingContext } from './RenderingContext.js';
 import { WebGPURenderingContext } from './WebGPURenderingContext.js';
 
 import { PerspectiveCamera } from './PerspectiveCamera.js';
+import { quat, mat4 } from '../lib/gl-matrix-module.js';
+import { Transform } from './Transform.js';
 
 export class Application {
 
@@ -53,12 +55,18 @@ constructor() {
         const resolution = this.renderingContextDialog.resolution;
         this.renderingContext.resolution = resolution;
     });
+
+    // this.modelTransform = new Transform();
     this.renderingContextDialog.addEventListener('transformation', e => {
-        const t = this.renderingContextDialog.translation;
-        const r = this.renderingContextDialog.rotation;
-        const s = this.renderingContextDialog.scale;
+        this.renderingContext.setVolMat(quat.fromEuler(quat.create(), ...this.renderingContextDialog.rotation), this.renderingContextDialog.translation, this.renderingContextDialog.scale);
+        // this.modelTransform.localTranslation = this.renderingContextDialog.translation;
+        // this.modelTransform.localRotation = quat.fromEuler(quat.create(), ...this.renderingContextDialog.rotation);
+        // this.modelTransform.localScale = this.renderingContextDialog.scale;
         // TODO fix model transform
+
+        console.log(quat.fromEuler(quat.create(), ...this.renderingContextDialog.rotation), this.renderingContextDialog.translation, this.renderingContextDialog.scale);
     });
+    // console.log(this.renderingContextDialog.translation, this.renderingContextDialog.rotation, this.renderingContextDialog.scale);
     this.renderingContextDialog.addEventListener('filter', e => {
         const filter = this.renderingContextDialog.filter;
         this.renderingContext.setFilter(filter);
