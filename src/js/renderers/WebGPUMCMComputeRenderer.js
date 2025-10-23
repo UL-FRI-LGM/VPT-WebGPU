@@ -46,7 +46,25 @@ constructor(device, volume, camera, environment, options = {}) {
             min: 0,
         },
         {
-            name: 'transferFunction',
+            name: 'transferFunction1',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction2',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction3',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction4',
             label: 'Transfer function',
             type: 'transfer-function',
             value: new Uint8Array(256),
@@ -56,15 +74,27 @@ constructor(device, volume, camera, environment, options = {}) {
     this.addEventListener('change', e => {
         const { name, value } = e.detail;
 
-        if (name === 'transferFunction') {
-            this.setTransferFunction(this.transferFunction);
+        if (name === 'transferFunction1') {
+            this.setTransferFunction1(this.transferFunction1);
+        }
+        if (name === 'transferFunction2') {
+            this.setTransferFunction2(this.transferFunction2);
+        }
+        if (name === 'transferFunction3') {
+            this.setTransferFunction3(this.transferFunction3);
+        }
+        if (name === 'transferFunction4') {
+            this.setTransferFunction4(this.transferFunction4);
         }
 
         if ([
             'extinction',
             'anisotropy',
             'bounces',
-            'transferFunction',
+            'transferFunction1',
+            'transferFunction2',
+            'transferFunction3',
+            'transferFunction4',
         ].includes(name)) {
             this.reset();
         }
@@ -171,7 +201,7 @@ _renderFrame() {
     const device = this._device;
 
     // TODO: get model matrix from volume
-    const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    const modelMatrix = this._volume.getModelMatrix();
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 
@@ -207,30 +237,54 @@ _renderFrame() {
             },
             {
                 binding: 2,
-                resource: this._transferFunction.createView()
+                resource: this._transferFunction1.createView()
             },
             {
                 binding: 3,
-                resource: this._transferFunctionSampler
+                resource: this._transferFunctionSampler1
             },
             {
                 binding: 4,
-                resource: this._environment.texture.createView()
+                resource: this._transferFunction2.createView()
             },
             {
                 binding: 5,
-                resource: this._environment.sampler
+                resource: this._transferFunctionSampler2
             },
             {
                 binding: 6,
-                resource: { buffer: this._renderUniformBuffer }
+                resource: this._transferFunction3.createView()
             },
             {
                 binding: 7,
-                resource: { buffer: this._photonBuffer }
+                resource: this._transferFunctionSampler3
             },
             {
                 binding: 8,
+                resource: this._transferFunction4.createView()
+            },
+            {
+                binding: 9,
+                resource: this._transferFunctionSampler4
+            },
+            {
+                binding: 10,
+                resource: this._environment.texture.createView()
+            },
+            {
+                binding: 11,
+                resource: this._environment.sampler
+            },
+            {
+                binding: 12,
+                resource: { buffer: this._renderUniformBuffer }
+            },
+            {
+                binding: 13,
+                resource: { buffer: this._photonBuffer }
+            },
+            {
+                binding: 14,
                 resource: this._renderBuffer.getAttachments()[0].texture.createView(),
             }
         ]
@@ -240,6 +294,7 @@ _renderFrame() {
     const pass = encoder.beginComputePass();
     pass.setPipeline(this._renderPipeline);
     pass.setBindGroup(0, bindGroup);
+    console.log(this._getWorkgroupCount());
     pass.dispatchWorkgroups(...this._getWorkgroupCount());
     pass.end();
     device.queue.submit([encoder.finish()]);

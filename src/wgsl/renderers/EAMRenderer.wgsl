@@ -17,9 +17,15 @@ struct Uniforms {
 
 @group(0) @binding(0) var uVolume: texture_3d<f32>;
 @group(0) @binding(1) var uVolumeSampler: sampler;
-@group(0) @binding(2) var uTransferFunction: texture_2d<f32>;
-@group(0) @binding(3) var uTransferFunctionSampler: sampler;
-@group(0) @binding(4) var<uniform> uniforms: Uniforms;
+@group(0) @binding(2) var uTransferFunction1: texture_2d<f32>;
+@group(0) @binding(3) var uTransferFunctionSampler1: sampler;
+@group(0) @binding(4) var uTransferFunction2: texture_2d<f32>;
+@group(0) @binding(5) var uTransferFunctionSampler2: sampler;
+@group(0) @binding(6) var uTransferFunction3: texture_2d<f32>;
+@group(0) @binding(7) var uTransferFunctionSampler3: sampler;
+@group(0) @binding(8) var uTransferFunction4: texture_2d<f32>;
+@group(0) @binding(9) var uTransferFunctionSampler4: sampler;
+@group(0) @binding(10) var<uniform> uniforms: Uniforms;
 
 const vertices = array<vec2f, 3>(
     vec2f(-1.0, -1.0),
@@ -46,19 +52,80 @@ fn vertex_main(@builtin(vertex_index) vertexIndex : u32) -> VertexOut  {
 
 #include <intersectCube>
 
-fn sampleVolumeColor(position: vec3f) -> vec4f {
+fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kanal posebej zašopat u vec4f pa da vidm če bojo ločeni
 
-    let volumeSample1: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
-    let volumeSample2: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).ba;
-
-    // print(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rgba);
-
-    let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample1.y), min(volumeSample2.x, volumeSample2.y));
-
+    // original
     // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
-    let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
-    return transferSample;
+
+    // min max
+    // let volumeSample1: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+    // let volumeSample2: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).ba;
+    // let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample1.y), min(volumeSample2.x, volumeSample2.y));
+    // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
+
+    // console.log(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r)
+
+    // let volumeSample1: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r;
+    // let volumeSample2: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g;
+    // let volumeSample3: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b;
+    // let volumeSample4: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a;
+    // let transferSample = vec4f(volumeSample1, volumeSample2, volumeSample3, volumeSample4);
+
+    // let transferSample: vec4f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0);
+    // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
+
+    let volumeSampleR = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r);
+    let transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);
+    let volumeSampleG = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g);
+    let transferSampleG: vec4f = textureSampleLevel(uTransferFunction2, uTransferFunctionSampler2, volumeSampleG, 0.0);
+    let volumeSampleB = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b);
+    let transferSampleB: vec4f = textureSampleLevel(uTransferFunction3, uTransferFunctionSampler3, volumeSampleB, 0.0);
+    let volumeSampleA = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a);
+    let transferSampleA: vec4f = textureSampleLevel(uTransferFunction4, uTransferFunctionSampler4, volumeSampleA, 0.0);
+
+    // let sumAlpha: f32 = transferSampleR.a + transferSampleG.a + transferSampleB.a + transferSampleA.a;
+    // let sumColor = vec3f(transferSampleR.rgb * transferSampleR.a + transferSampleG.rgb * transferSampleG.a + transferSampleB.rgb * transferSampleB.a + transferSampleA.rgb * transferSampleA.a) / sumAlpha;
+
+    // return vec4f(sumColor, sumAlpha/4.0);
+    return vec4f(
+        transferSampleR.r,
+        transferSampleG.g,
+        transferSampleB.b,
+        transferSampleA.a
+    );
+
+    // return transferSample;
 }
+
+// fn sampleVolumeColor(position: vec3f) -> mat4x4f { // lhko probam pol sam usak kanal posebej zašopat u vec4f pa da vidm če bojo ločeni
+
+//     // original
+//     // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+
+//     // min max
+//     // let volumeSample1: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
+//     // let volumeSample2: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).ba;
+//     // let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample1.y), min(volumeSample2.x, volumeSample2.y));
+//     // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
+
+//     // console.log(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r)
+
+//     let volumeSampleR = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r);
+//     let transferSampleR: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSampleR, 0.0);
+//     let volumeSampleG = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g);
+//     let transferSampleG: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSampleG, 0.0);
+//     let volumeSampleB = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b);
+//     let transferSampleB: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSampleB, 0.0);
+//     let volumeSampleA = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a);
+//     let transferSampleA: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSampleA, 0.0);
+
+//     return mat4x4f(
+//         transferSampleR,
+//         transferSampleG,
+//         transferSampleB,
+//         transferSampleA
+//     );
+// }
 
 @fragment
 fn fragment_main(@location(0) rayFrom: vec3f, @location(1) rayTo: vec3f) -> @location(0) vec4f {

@@ -46,7 +46,25 @@ constructor(device, volume, camera, environment, options = {}) {
             min: 0,
         },
         {
-            name: 'transferFunction',
+            name: 'transferFunction1',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction2',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction3',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction4',
             label: 'Transfer function',
             type: 'transfer-function',
             value: new Uint8Array(256),
@@ -56,15 +74,27 @@ constructor(device, volume, camera, environment, options = {}) {
     this.addEventListener('change', e => {
         const { name, value } = e.detail;
 
-        if (name === 'transferFunction') {
-            this.setTransferFunction(this.transferFunction);
+        if (name === 'transferFunction1') {
+            this.setTransferFunction1(this.transferFunction1);
+        }
+        if (name === 'transferFunction2') {
+            this.setTransferFunction2(this.transferFunction2);
+        }
+        if (name === 'transferFunction3') {
+            this.setTransferFunction3(this.transferFunction3);
+        }
+        if (name === 'transferFunction4') {
+            this.setTransferFunction4(this.transferFunction4);
         }
 
         if ([
             'extinction',
             'anisotropy',
             'bounces',
-            'transferFunction',
+            'transferFunction1',
+            'transferFunction2',
+            'transferFunction3',
+            'transferFunction4',
         ].includes(name)) {
             this.reset();
         }
@@ -113,32 +143,32 @@ constructor(device, volume, camera, environment, options = {}) {
             {
                 binding: 6,
                 visibility: GPUShaderStage.FRAGMENT,
-                texture: { sampleType: "unfilterable-float" }
+                texture: { sampleType: "float" }
             },
             {
                 binding: 7,
                 visibility: GPUShaderStage.FRAGMENT,
-                sampler: { type: "non-filtering" }
+                sampler: { type: "filtering" }
             },
             {
                 binding: 8,
                 visibility: GPUShaderStage.FRAGMENT,
-                texture: { sampleType: "unfilterable-float" }
+                texture: { sampleType: "float" }
             },
             {
                 binding: 9,
                 visibility: GPUShaderStage.FRAGMENT,
-                sampler: { type: "non-filtering" }
+                sampler: { type: "filtering" }
             },
             {
                 binding: 10,
                 visibility: GPUShaderStage.FRAGMENT,
-                texture: { sampleType: "unfilterable-float" }
+                texture: { sampleType: "float" }
             },
             {
                 binding: 11,
                 visibility: GPUShaderStage.FRAGMENT,
-                sampler: { type: "non-filtering" }
+                sampler: { type: "filtering" }
             },
             {
                 binding: 12,
@@ -152,6 +182,36 @@ constructor(device, volume, camera, environment, options = {}) {
             },
             {
                 binding: 14,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "unfilterable-float" }
+            },
+            {
+                binding: 15,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: { type: "non-filtering" }
+            },
+            {
+                binding: 16,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "unfilterable-float" }
+            },
+            {
+                binding: 17,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: { type: "non-filtering" }
+            },
+            {
+                binding: 18,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "unfilterable-float" }
+            },
+            {
+                binding: 19,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: { type: "non-filtering" }
+            },
+            {
+                binding: 20,
                 visibility: GPUShaderStage.FRAGMENT,
                 buffer: { type: "uniform" }
             }
@@ -300,7 +360,7 @@ _integrateFrame() {
     const device = this._device;
 
     // TODO: get model matrix from volume
-    const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    const modelMatrix = this._volume.getModelMatrix();
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 
@@ -336,54 +396,78 @@ _integrateFrame() {
             },
             {
                 binding: 2,
-                resource: this._transferFunction.createView()
+                resource: this._transferFunction1.createView()
             },
             {
                 binding: 3,
-                resource: this._transferFunctionSampler
+                resource: this._transferFunctionSampler1
             },
             {
                 binding: 4,
-                resource: this._environment.texture.createView()
+                resource: this._transferFunction2.createView()
             },
             {
                 binding: 5,
-                resource: this._environment.sampler
+                resource: this._transferFunctionSampler2
             },
             {
                 binding: 6,
-                resource: this._accumulationBuffer.getReadAttachments()[0].texture.createView(),
+                resource: this._transferFunction3.createView()
             },
             {
                 binding: 7,
-                resource: this._accumulationBuffer.getReadAttachments()[0].sampler,
+                resource: this._transferFunctionSampler3
             },
             {
                 binding: 8,
-                resource: this._accumulationBuffer.getReadAttachments()[1].texture.createView(),
+                resource: this._transferFunction4.createView()
             },
             {
                 binding: 9,
-                resource: this._accumulationBuffer.getReadAttachments()[1].sampler,
+                resource: this._transferFunctionSampler4
             },
             {
                 binding: 10,
-                resource: this._accumulationBuffer.getReadAttachments()[2].texture.createView(),
+                resource: this._environment.texture.createView()
             },
             {
                 binding: 11,
-                resource: this._accumulationBuffer.getReadAttachments()[2].sampler,
+                resource: this._environment.sampler
             },
             {
                 binding: 12,
-                resource: this._accumulationBuffer.getReadAttachments()[3].texture.createView(),
+                resource: this._accumulationBuffer.getReadAttachments()[0].texture.createView(),
             },
             {
                 binding: 13,
-                resource: this._accumulationBuffer.getReadAttachments()[3].sampler,
+                resource: this._accumulationBuffer.getReadAttachments()[0].sampler,
             },
             {
                 binding: 14,
+                resource: this._accumulationBuffer.getReadAttachments()[1].texture.createView(),
+            },
+            {
+                binding: 15,
+                resource: this._accumulationBuffer.getReadAttachments()[1].sampler,
+            },
+            {
+                binding: 16,
+                resource: this._accumulationBuffer.getReadAttachments()[2].texture.createView(),
+            },
+            {
+                binding: 17,
+                resource: this._accumulationBuffer.getReadAttachments()[2].sampler,
+            },
+            {
+                binding: 18,
+                resource: this._accumulationBuffer.getReadAttachments()[3].texture.createView(),
+            },
+            {
+                binding: 19,
+                resource: this._accumulationBuffer.getReadAttachments()[3].sampler,
+            },
+            {
+                binding: 20,
                 resource: { buffer: this._integrateUniformBuffer }
             }
         ]

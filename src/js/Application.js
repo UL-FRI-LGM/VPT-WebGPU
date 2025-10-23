@@ -16,7 +16,6 @@ import { WebGPURenderingContext } from './WebGPURenderingContext.js';
 
 import { PerspectiveCamera } from './PerspectiveCamera.js';
 import { quat, mat4 } from '../lib/gl-matrix-module.js';
-import { Transform } from './Transform.js';
 
 export class Application {
 
@@ -29,6 +28,7 @@ constructor() {
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
 
     this.binds = DOMUtils.bind(document.body);
+    console.log(this.binds);
 
     this.renderingContext = new WebGPURenderingContext(() => {
     ////////////////////////////////////////////////////////////////
@@ -39,14 +39,17 @@ constructor() {
 
     this.mainDialog = new MainDialog();
     this.binds.sidebarContainer.appendChild(this.mainDialog.object);
+    console.log(this.mainDialog);
 
     this.volumeLoadDialog = new VolumeLoadDialog();
     this.mainDialog.getVolumeLoadContainer().appendChild(this.volumeLoadDialog.object);
     this.volumeLoadDialog.addEventListener('load', this._handleVolumeLoad);
+    console.log(this.volumeLoadDialog);
 
     this.envmapLoadDialog = new EnvmapLoadDialog();
     this.mainDialog.getEnvmapLoadContainer().appendChild(this.envmapLoadDialog.object);
     this.envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
+    console.log(this.envmapLoadDialog);
 
     this.renderingContextDialog = new RenderingContextDialog();
     this.mainDialog.getRenderingContextSettingsContainer().appendChild(
@@ -64,7 +67,7 @@ constructor() {
         // this.modelTransform.localScale = this.renderingContextDialog.scale;
         // TODO fix model transform
 
-        console.log(quat.fromEuler(quat.create(), ...this.renderingContextDialog.rotation), this.renderingContextDialog.translation, this.renderingContextDialog.scale);
+        // console.log(quat.fromEuler(quat.create(), ...this.renderingContextDialog.rotation), this.renderingContextDialog.translation, this.renderingContextDialog.scale);
     });
     // console.log(this.renderingContextDialog.translation, this.renderingContextDialog.rotation, this.renderingContextDialog.scale);
     this.renderingContextDialog.addEventListener('filter', e => {
@@ -75,6 +78,8 @@ constructor() {
         this.renderingContext.canvas.classList.toggle('fullscreen',
             this.renderingContextDialog.fullscreen);
     });
+
+    console.log(this.renderingContextDialog);
 
     new ResizeObserver(entries => {
         const size = entries[0].contentBoxSize[0];
@@ -133,6 +138,7 @@ _handleRendererChange() {
     const which = this.mainDialog.getSelectedRenderer();
     this.renderingContext.chooseRenderer(which);
     const renderer = this.renderingContext.renderer;
+    console.log(renderer);
     const object = DialogConstructor.construct(renderer.properties);
     const binds = DOMUtils.bind(object);
     this.rendererDialog = object;
@@ -147,6 +153,9 @@ _handleRendererChange() {
     }
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
+    // container.appendChild(this.rendererDialog);
+    // container.appendChild(this.rendererDialog);
+    // container.appendChild(this.rendererDialog);
 }
 
 _handleToneMapperChange() {

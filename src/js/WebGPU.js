@@ -28,10 +28,10 @@ static createBuffer(device, data, usage) {
  * @returns {GPUTexture}
  */
 static createTextureFromTypedArray(
-        device,
-        size,
-        data,
-        format = "rgba8unorm",
+        device, // device
+        size, // [2, 1]
+        data, // new Uint8Array([255, 0, 0, 0, 255, 0, 0, 255])
+        format = "rgba8unorm", // "default: rgba8unorm-srgb"
         usage = GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
 ) {
     if (data.byteLength % (size[0] * size[1]) !== 0) {
@@ -82,6 +82,8 @@ static buildShaderModules(device, shaders, mixins) {
             return struct;
         });
     }
+
+    console.log(cooked);
 
     const modules = {};
     for (const name in cooked) {

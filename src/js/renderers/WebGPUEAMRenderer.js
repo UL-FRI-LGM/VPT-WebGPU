@@ -37,7 +37,25 @@ constructor(device, volume, camera, environment, options = {}) {
             value: true,
         },
         {
-            name: 'transferFunction',
+            name: 'transferFunction1',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction2',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction3',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array(256),
+        },
+        {
+            name: 'transferFunction4',
             label: 'Transfer function',
             type: 'transfer-function',
             value: new Uint8Array(256),
@@ -47,15 +65,27 @@ constructor(device, volume, camera, environment, options = {}) {
     this.addEventListener('change', e => {
         const { name, value } = e.detail;
 
-        if (name === 'transferFunction') {
-            this.setTransferFunction(this.transferFunction);
+        if (name === 'transferFunction1') {
+            this.setTransferFunction1(this.transferFunction1);
+        }
+        if (name === 'transferFunction2') {
+            this.setTransferFunction2(this.transferFunction2);
+        }
+        if (name === 'transferFunction3') {
+            this.setTransferFunction3(this.transferFunction3);
+        }
+        if (name === 'transferFunction4') {
+            this.setTransferFunction4(this.transferFunction4);
         }
 
         if ([
             'extinction',
             'slices',
             'random',
-            'transferFunction',
+            'transferFunction1',
+            'transferFunction2',
+            'transferFunction3',
+            'transferFunction4',
         ].includes(name)) {
             this.reset();
         }
@@ -63,6 +93,8 @@ constructor(device, volume, camera, environment, options = {}) {
 
     const modules = WebGPU.buildShaderModules(device, SHADERS.renderers.EAM, MIXINS);
     this._frameNumber = 0;
+
+    console.log(modules);
 
     this._generateUniformBuffer = device.createBuffer({
         size: 80,
@@ -188,14 +220,38 @@ _generateFrame() {
             },
             {
                 binding: 2,
-                resource: this._transferFunction.createView()
+                resource: this._transferFunction1.createView()
             },
             {
                 binding: 3,
-                resource: this._transferFunctionSampler
+                resource: this._transferFunctionSampler1
             },
             {
                 binding: 4,
+                resource: this._transferFunction2.createView()
+            },
+            {
+                binding: 5,
+                resource: this._transferFunctionSampler2
+            },
+            {
+                binding: 6,
+                resource: this._transferFunction3.createView()
+            },
+            {
+                binding: 7,
+                resource: this._transferFunctionSampler3
+            },
+            {
+                binding: 8,
+                resource: this._transferFunction4.createView()
+            },
+            {
+                binding: 9,
+                resource: this._transferFunctionSampler4
+            },
+            {
+                binding: 10,
                 resource: { buffer: this._generateUniformBuffer }
             }
         ]
