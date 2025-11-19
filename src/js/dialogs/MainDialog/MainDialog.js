@@ -12,12 +12,13 @@ export class MainDialog extends EventTarget {
 constructor() {
     super();
 
+    // console.log(template.content.cloneNode(true));
     this.object = template.content.cloneNode(true);
     this.binds = DOMUtils.bind(this.object);
-    console.log(this.binds);
+    // console.log(this.binds);
 
     this._handleRendererChange = this._handleRendererChange.bind(this);
-    console.log(this._handleRendererChange);
+    // console.log(this._handleRendererChange);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
 
@@ -39,6 +40,7 @@ getEnvmapLoadContainer() {
 }
 
 getRendererSettingsContainer() {
+    // console.log(this.binds.rendererSettingsContainer.object);
     return this.binds.rendererSettingsContainer;
 }
 

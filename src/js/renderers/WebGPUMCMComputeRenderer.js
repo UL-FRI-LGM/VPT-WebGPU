@@ -49,25 +49,49 @@ constructor(device, volume, camera, environment, options = {}) {
             name: 'transferFunction1',
             label: 'Transfer function',
             type: 'transfer-function',
-            value: new Uint8Array(256),
+            value: new Uint8Array([0,0,0,0]),
         },
         {
             name: 'transferFunction2',
             label: 'Transfer function',
             type: 'transfer-function',
-            value: new Uint8Array(256),
+            value: new Uint8Array([0,0,0,0]),
         },
         {
             name: 'transferFunction3',
             label: 'Transfer function',
             type: 'transfer-function',
-            value: new Uint8Array(256),
+            value: new Uint8Array([0,0,0,0]),
         },
         {
             name: 'transferFunction4',
             label: 'Transfer function',
             type: 'transfer-function',
-            value: new Uint8Array(256),
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction5',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction6',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction7',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction8',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
         },
     ]);
 
@@ -86,6 +110,18 @@ constructor(device, volume, camera, environment, options = {}) {
         if (name === 'transferFunction4') {
             this.setTransferFunction4(this.transferFunction4);
         }
+        if (name === 'transferFunction5') {
+            this.setTransferFunction5(this.transferFunction5);
+        }
+        if (name === 'transferFunction6') {
+            this.setTransferFunction6(this.transferFunction6);
+        }
+        if (name === 'transferFunction7') {
+            this.setTransferFunction7(this.transferFunction7);
+        }
+        if (name === 'transferFunction8') {
+            this.setTransferFunction8(this.transferFunction8);
+        }
 
         if ([
             'extinction',
@@ -95,6 +131,10 @@ constructor(device, volume, camera, environment, options = {}) {
             'transferFunction2',
             'transferFunction3',
             'transferFunction4',
+            'transferFunction5',
+            'transferFunction6',
+            'transferFunction7',
+            'transferFunction8',
         ].includes(name)) {
             this.reset();
         }
@@ -112,12 +152,218 @@ constructor(device, volume, camera, environment, options = {}) {
 
     
     this._renderUniformBuffer = device.createBuffer({
-        size: 96,
+        size: 256,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this._renderBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "3d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 2,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "3d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 3,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 4,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 5,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 6,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 7,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 8,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 9,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 10,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 11,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 12,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 13,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 14,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 15,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 16,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 17,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 18,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 19,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 20,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 21,
+                visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 22,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "uniform"
+                }
+            },
+            {
+                binding: 23,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "storage"
+                }
+            },
+            {
+                binding: 24,
+                visibility: GPUShaderStage.COMPUTE,
+                storageTexture: {
+                    access: "write-only",
+                    format: "rgba16float",
+                    viewDimension: "2d"
+                }
+            },
+        ]
+    });
+    this._renderPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [this._renderBindGroupLayout]
     });
     this._renderPipeline = device.createComputePipeline({
         label: "WebGPUMCMComputeRenderer render pipeline",
-        layout: "auto",
+        layout: this._renderPipelineLayout,
         compute: {
             module: this._programs.render,
             entryPoint: "compute_main",
@@ -130,7 +376,7 @@ constructor(device, volume, camera, environment, options = {}) {
 
     
     this._resetUniformBuffer = device.createBuffer({
-        size: 80,
+        size: 128,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     this._resetPipeline = device.createComputePipeline({
@@ -157,7 +403,14 @@ _resetFrame() {
     const device = this._device;
 
     // TODO: get model matrix from volume
-    const modelMatrix = this._volume.getModelMatrix();
+    var modelMatrix;
+    if (!this._volume.length) {
+        modelMatrix = this._volume.getModelMatrix();
+    }
+    else {
+        modelMatrix = this._volume[0].getModelMatrix();
+    }
+    // const modelMatrix = this._volume.getModelMatrix();
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 
@@ -201,7 +454,7 @@ _renderFrame() {
     const device = this._device;
 
     // TODO: get model matrix from volume
-    const modelMatrix = this._volume.getModelMatrix();
+    const modelMatrix = this._volume[0].getModelMatrix();
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 
@@ -229,62 +482,102 @@ _renderFrame() {
         entries: [ // TODO: Cleanup
             {
                 binding: 0,
-                resource: this._volume.getTexture().createView()
+                resource: this._volume[0].getTexture().createView()
             },
             {
                 binding: 1,
-                resource: this._volume.getTextureSampler()
+                resource: this._volume[0].getTextureSampler()
             },
             {
                 binding: 2,
-                resource: this._transferFunction1.createView()
+                resource: this._volume[1].getTexture().createView()
             },
             {
                 binding: 3,
-                resource: this._transferFunctionSampler1
+                resource: this._volume[1].getTextureSampler()
             },
             {
                 binding: 4,
-                resource: this._transferFunction2.createView()
+                resource: this._transferFunction1.createView()
             },
             {
                 binding: 5,
-                resource: this._transferFunctionSampler2
+                resource: this._transferFunctionSampler1
             },
             {
                 binding: 6,
-                resource: this._transferFunction3.createView()
+                resource: this._transferFunction2.createView()
             },
             {
                 binding: 7,
-                resource: this._transferFunctionSampler3
+                resource: this._transferFunctionSampler2
             },
             {
                 binding: 8,
-                resource: this._transferFunction4.createView()
+                resource: this._transferFunction3.createView()
             },
             {
                 binding: 9,
-                resource: this._transferFunctionSampler4
+                resource: this._transferFunctionSampler3
             },
             {
                 binding: 10,
-                resource: this._environment.texture.createView()
+                resource: this._transferFunction4.createView()
             },
             {
                 binding: 11,
-                resource: this._environment.sampler
+                resource: this._transferFunctionSampler4
             },
             {
                 binding: 12,
-                resource: { buffer: this._renderUniformBuffer }
+                resource: this._transferFunction5.createView()
             },
             {
                 binding: 13,
-                resource: { buffer: this._photonBuffer }
+                resource: this._transferFunctionSampler5
             },
             {
                 binding: 14,
+                resource: this._transferFunction6.createView()
+            },
+            {
+                binding: 15,
+                resource: this._transferFunctionSampler6
+            },
+            {
+                binding: 16,
+                resource: this._transferFunction7.createView()
+            },
+            {
+                binding: 17,
+                resource: this._transferFunctionSampler7
+            },
+            {
+                binding: 18,
+                resource: this._transferFunction8.createView()
+            },
+            {
+                binding: 19,
+                resource: this._transferFunctionSampler8
+            },
+            {
+                binding: 20,
+                resource: this._environment.texture.createView()
+            },
+            {
+                binding: 21,
+                resource: this._environment.sampler
+            },
+            {
+                binding: 22,
+                resource: { buffer: this._renderUniformBuffer }
+            },
+            {
+                binding: 23,
+                resource: { buffer: this._photonBuffer }
+            },
+            {
+                binding: 24,
                 resource: this._renderBuffer.getAttachments()[0].texture.createView(),
             }
         ]
@@ -294,7 +587,7 @@ _renderFrame() {
     const pass = encoder.beginComputePass();
     pass.setPipeline(this._renderPipeline);
     pass.setBindGroup(0, bindGroup);
-    console.log(this._getWorkgroupCount());
+    // console.log(this._getWorkgroupCount());
     pass.dispatchWorkgroups(...this._getWorkgroupCount());
     pass.end();
     device.queue.submit([encoder.finish()]);

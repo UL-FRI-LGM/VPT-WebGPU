@@ -15,17 +15,29 @@ constructor() {
     this.shadow.appendChild(template.content.cloneNode(true));
     this.binds = DOMUtils.bind(this.shadow);
 
-    // TODO: this should be done on every mutation
-    for (const header of this.binds.headers.assignedElements()) {
-        header.addEventListener('click', this.clickListener);
-    }
+    // // TODO: this should be done on every mutation
+    // for (const header of this.binds.headers.assignedElements()) {
+    //     header.addEventListener('click', this.clickListener);
+    // }
+    this.binds.headers.addEventListener('slotchange', () => this._bindHeaders());
+    this._bindHeaders();
 
     this.selectTab(0);
 }
 
+_bindHeaders() {
+    const headers = this.binds.headers.assignedElements();
+    for (const header of headers) {
+        header.removeEventListener('click', this.clickListener);
+        header.addEventListener('click', this.clickListener);
+    }
+}
+
 selectTab(index) {
     const tabs = this.binds.tabs.assignedElements();
-
+    // console.log(index);
+    if (tabs.length == 0)
+        return;
     if (index < 0 || index >= tabs.length) {
         throw new Error('Tab index out of range');
     }

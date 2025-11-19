@@ -859,10 +859,6 @@ for (let i = 2; i < process.argv.length - 1; i++) {
         case '-f':
         case '--format':
             currentModality.format = formats[val];
-        
-        case '-fw':
-        case '--format-wgsl':
-            currentModality.format = wgsl_formats[val];
 
         case '-g':
         case '--gradient':

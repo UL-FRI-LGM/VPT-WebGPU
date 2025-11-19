@@ -3,19 +3,37 @@ import { DOMUtils } from '../utils/DOMUtils.js';
 export class DialogConstructor {
 
 static construct(properties) {
-    const panel = document.createElement('div');
+    const panel = document.createElement('ui-tabs');
+    panel.bind = "tabs";
+
+    const header = document.createElement('div');
+    header.slot = 'header';
+    header.textContent = 'Properties';
+
+    const tabContent = document.createElement('div');
+    var i = 0;
     for (const property of properties) {
         const widget = this.constructProperty(property);
         if (property.type === 'transfer-function') {
-            const accordion = `<ui-accordion><span slot="label">Transfer function</span>${widget}</ui-accordion>`;
-            const instance = DOMUtils.instantiate(accordion);
-            panel.appendChild(instance);
+            i+=1;
+            const tfHeader = document.createElement('div');
+            tfHeader.slot = 'header';
+            tfHeader.textContent = i;
+            panel.appendChild(tfHeader);
+
+            const tfInstance = DOMUtils.instantiate(widget);
+            panel.appendChild(tfInstance);
+
         } else {
-            const field = `<ui-field><label slot="label">${property.label}</label>${widget}</ui-field>`;
-            const instance = DOMUtils.instantiate(field);
-            panel.appendChild(instance);
+            const fieldHTML = `<ui-field><label slot="label">${property.label}</label>${widget}</ui-field>`;
+            const instance = DOMUtils.instantiate(fieldHTML);
+            tabContent.appendChild(instance);
         }
     }
+
+    panel.appendChild(header);
+    panel.appendChild(tabContent);
+
     return panel;
 }
 

@@ -16,6 +16,12 @@ constructor(device, reader, options = {}) {
     this.modality = null;
     // this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(0,0,0), vec3.normalize(vec3.create(), vec3.fromValues(1024, 1024, 30))); //hardcoded
     this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(-0.5,-0.5,-0.5), vec3.fromValues(1,1,1)); //hardcoded
+
+    this.tfArray = [];
+    for (let index = 0; index < 256 * 256; index++) {
+        this.tfArray[index] = 0;
+    }
+    this.tfAccumulatedGM = null;
 }
 
 destroy() {
@@ -49,7 +55,7 @@ async readModality(modalityName) {
     //     throw new Error(`Modality '${modalityName}' does not exist`);
     // }
 
-    const modality = this.metadata.modalities[0];
+    const modality = this.metadata.modalities[1]; // modalitiesRGBA ima 2 modalityja, dela, treba sam še dinamično to skp sestaut
     var modalityName = modality.name;
     if (!modality) {
         throw new Error(`Modality '${modalityName}' does not exist`);
@@ -107,9 +113,141 @@ async readModality(modalityName) {
     this.ready = true;
 }
 
+async readModalities(which) {
+    this.ready = false;
+
+    if (!this.metadata) {
+        await this.readMetadata();
+    }
+
+    // console.log(this.metadata.modalities[0]);
+
+    // const modality = this.metadata.modalities.find(modality => modality.name === modalityName);
+    // if (!modality) {
+    //     throw new Error(`Modality '${modalityName}' does not exist`);
+    // }
+
+    const modality = this.metadata.modalities[which]; // modalitiesRGBA ima 2 modalityja, dela, treba sam še dinamično to skp sestaut
+    var modalityName = modality.name;
+    if (!modality) {
+        throw new Error(`Modality '${modalityName}' does not exist`);
+    }
+
+    this.modality = modality;
+
+    const { width, height, depth } = modality.dimensions;
+    const { format, internalFormat, type } = modality;
+
+    const device = this._device;
+    if (this.texture) {
+        this.texture.destroy();
+    }
+    this.texture = device.createTexture({
+        size: [width, height, depth],
+        dimension: "3d",
+        format: "rgba8unorm", // tle je format texture HARDCODAN
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+    this.textureSampler = device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
+    let remainingBlocks = modality.placements.length;
+    for (const { index, position } of modality.placements) {
+        const data = await this._reader.readBlock(index);
+        const block = this.metadata.blocks[index];
+        const { width, height, depth } = block.dimensions;
+        const { x, y, z } = position;
+
+        const typedData = this._typize(data, type);
+        for (let i = 0; i < typedData.length; i+=2) {
+            this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
+        }
+        remainingBlocks--;
+        if (remainingBlocks === 0) {
+            const m = Math.log(Math.max(...this.tfArray));
+            let tf = new Array(this.tfArray.length * 4);
+            for (let j = 0; j < this.tfArray.length; j++) {
+                const v = 255 - Math.log(this.tfArray[j]) / m * 255;
+                tf[4*j] = v;
+                tf[4*j+1] = v;
+                tf[4*j+2] = v;
+                tf[4*j+3] = 255;
+            }
+            this.tfArray = tf;
+            // console.log(this.tfArray);
+            const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
+            const canv = document.createElement('canvas');
+            canv.width = 256;
+            canv.height = 256;
+            const ctx = canv.getContext('2d');
+            ctx.putImageData(imgData, 0, 0);
+            this.tfAccumulatedGM = canv.toDataURL();
+        }
+
+        device.queue.writeTexture(
+            {
+                label: 'Volume Texture',
+                texture: this.texture,
+                origin: [x, y, z]
+            },
+            this._typize(data, type),
+            {
+                offset: 0,
+                bytesPerRow: width * 4,
+                rowsPerImage: height
+            },
+            {
+                width,
+                height,
+                depthOrArrayLayers: depth
+            }
+        );
+
+        const progress = (index + 1) / modality.placements.length;
+        this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+    }
+
+    this.ready = true;
+}
+
 async load() {
     await this.readModality('default');
 }
+
+async loadAll(which) {
+    await this.readModalities(which);
+}
+
+async loadBlank() {
+    const data = new Uint8Array([0, 0, 0, 0]);
+    this.texture = this._device.createTexture({
+        size: [1, 1, 1],
+        dimension: "3d",
+        format: "rgba8unorm", // tle je format texture HARDCODAN
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+    this.textureSampler = this._device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
+    this._device.queue.writeTexture(
+        {
+            label: 'Blank Texture',
+            texture: this.texture,
+            origin: [0, 0, 0]
+        },
+        data,
+        {},
+        {
+            width: 1, 
+            height: 1
+        }
+    );
+    this.ready = true;
+    return this.texture
+}
+
 
 _typize(data, type) {
     return new Uint8ClampedArray(data); // TODO

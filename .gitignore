@@ -3,5 +3,6 @@ package-lock.json
 build
 settings
 *.bvp
+*.raw
 data/*
 .vscode

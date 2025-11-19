@@ -83,7 +83,7 @@ static buildShaderModules(device, shaders, mixins) {
         });
     }
 
-    console.log(cooked);
+    // console.log(cooked);
 
     const modules = {};
     for (const name in cooked) {

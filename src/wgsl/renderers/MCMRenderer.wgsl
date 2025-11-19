@@ -27,29 +27,39 @@ struct Uniforms {
 
 // popravi binding
 
-@group(0) @binding(0) var uVolume: texture_3d<f32>;
-@group(0) @binding(1) var uVolumeSampler: sampler;
-@group(0) @binding(2) var uTransferFunction1: texture_2d<f32>;
-@group(0) @binding(3) var uTransferFunctionSampler1: sampler;
-@group(0) @binding(4) var uTransferFunction2: texture_2d<f32>;
-@group(0) @binding(5) var uTransferFunctionSampler2: sampler;
-@group(0) @binding(6) var uTransferFunction3: texture_2d<f32>;
-@group(0) @binding(7) var uTransferFunctionSampler3: sampler;
-@group(0) @binding(8) var uTransferFunction4: texture_2d<f32>;
-@group(0) @binding(9) var uTransferFunctionSampler4: sampler;
-@group(0) @binding(10) var uEnvironment: texture_2d<f32>;
-@group(0) @binding(11) var uEnvironmentSampler: sampler;
+@group(0) @binding(0) var uVolume0: texture_3d<f32>;
+@group(0) @binding(1) var uVolumeSampler0: sampler;
+@group(0) @binding(2) var uVolume1: texture_3d<f32>;
+@group(0) @binding(3) var uVolumeSampler1: sampler;
+@group(0) @binding(4) var uTransferFunction1: texture_2d<f32>;
+@group(0) @binding(5) var uTransferFunctionSampler1: sampler;
+@group(0) @binding(6) var uTransferFunction2: texture_2d<f32>;
+@group(0) @binding(7) var uTransferFunctionSampler2: sampler;
+@group(0) @binding(8) var uTransferFunction3: texture_2d<f32>;
+@group(0) @binding(9) var uTransferFunctionSampler3: sampler;
+@group(0) @binding(10) var uTransferFunction4: texture_2d<f32>;
+@group(0) @binding(11) var uTransferFunctionSampler4: sampler;
+@group(0) @binding(12) var uTransferFunction5: texture_2d<f32>;
+@group(0) @binding(13) var uTransferFunctionSampler5: sampler;
+@group(0) @binding(14) var uTransferFunction6: texture_2d<f32>;
+@group(0) @binding(15) var uTransferFunctionSampler6: sampler;
+@group(0) @binding(16) var uTransferFunction7: texture_2d<f32>;
+@group(0) @binding(17) var uTransferFunctionSampler7: sampler;
+@group(0) @binding(18) var uTransferFunction8: texture_2d<f32>;
+@group(0) @binding(19) var uTransferFunctionSampler8: sampler;
+@group(0) @binding(20) var uEnvironment: texture_2d<f32>;
+@group(0) @binding(21) var uEnvironmentSampler: sampler;
 
-@group(0) @binding(12) var uPosition: texture_2d<f32>;
-@group(0) @binding(13) var uPositionSampler: sampler;
-@group(0) @binding(14) var uDirection: texture_2d<f32>;
-@group(0) @binding(15) var uDirectionSampler: sampler;
-@group(0) @binding(16) var uTransmittance: texture_2d<f32>;
-@group(0) @binding(17) var uTransmittanceSampler: sampler;
-@group(0) @binding(18) var uRadiance: texture_2d<f32>;
-@group(0) @binding(19) var uRadianceSampler: sampler;
+@group(0) @binding(22) var uPosition: texture_2d<f32>;
+@group(0) @binding(23) var uPositionSampler: sampler;
+@group(0) @binding(24) var uDirection: texture_2d<f32>;
+@group(0) @binding(25) var uDirectionSampler: sampler;
+@group(0) @binding(26) var uTransmittance: texture_2d<f32>;
+@group(0) @binding(27) var uTransmittanceSampler: sampler;
+@group(0) @binding(28) var uRadiance: texture_2d<f32>;
+@group(0) @binding(29) var uRadianceSampler: sampler;
 
-@group(0) @binding(20) var<uniform> uniforms: Uniforms;
+@group(0) @binding(30) var<uniform> uniforms: Uniforms;
 
 
 const vertices = array<vec2f, 3>(
@@ -110,13 +120,13 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
     // // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
     // return transferSample;
 
-    let volumeSampleR = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r);
+    let volumeSampleR = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r);
     let transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);
-    let volumeSampleG = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g);
+    let volumeSampleG = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g);
     let transferSampleG: vec4f = textureSampleLevel(uTransferFunction2, uTransferFunctionSampler2, volumeSampleG, 0.0);
-    let volumeSampleB = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b);
+    let volumeSampleB = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b);
     let transferSampleB: vec4f = textureSampleLevel(uTransferFunction3, uTransferFunctionSampler3, volumeSampleB, 0.0);
-    let volumeSampleA = vec2f(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a, textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a);
+    let volumeSampleA = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a);
     let transferSampleA: vec4f = textureSampleLevel(uTransferFunction4, uTransferFunctionSampler4, volumeSampleA, 0.0);
 
     let sumAlpha: f32 = transferSampleR.a + transferSampleG.a + transferSampleB.a + transferSampleA.a;

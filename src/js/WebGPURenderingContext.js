@@ -27,7 +27,8 @@ constructor(onInitialized, options = {}) {
 
     // TODO: Find a better way to do this
     this.initWebGPU().then(() => {
-        this.volume = new WebGPUVolume(this.device);
+        this.volume = new WebGPUVolume(this.device)
+        // this.volume = [ new WebGPUVolume(this.device) ];
         onInitialized();
     });
 
@@ -114,20 +115,67 @@ resize(width, height) {
     this.camera.getComponent(PerspectiveCamera).aspect = width / height;
 }
 
-async setVolume(reader) {
-    this.volume = new WebGPUVolume(this.device, reader);
-    this.volume.addEventListener('progress', e => {
-        this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
-    });
-    await this.volume.load();
-    this.volume.setFilter(this.filter);
-    if (this.renderer) {
-        this.renderer.setVolume(this.volume);
+// async setVolume(reader) {
+//     console.log("Pre-import volume:")
+//     console.log(this.volume);
+//     this.volume = new WebGPUVolume(this.device, reader);
+//     this.volume.addEventListener('progress', e => {
+//         this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+//     });
+//     await this.volume.load();
+//     this.volume.setFilter(this.filter);
+//     if (this.renderer) {
+//         this.renderer.setVolume(this.volume);
+//     }
+//     console.log("Post-import volume:")
+//     console.log(this.volume);
+// }
+
+// to treba dodelat da bo dejansko shranlo vsak volumen v tabelo
+// to bi pol uporabu kot nadomestek za original setVolume() funkcijo
+async setVolumes(reader, numModalities) {
+    this.volume = []
+    if (numModalities < 2)
+    {
+        this.volume.push(new WebGPUVolume(this.device, reader));
+        this.volume[0].addEventListener('progress', e => {
+            this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+        });
+        await this.volume[0].loadAll(0);
+        this.volume[0].setFilter(this.filter);
+        this.volume.push(new WebGPUVolume(this.device, reader));
+        this.volume[1].addEventListener('progress', e => {
+            this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+        });
+        await this.volume[1].loadBlank(); // tale loadBlank() funkcija bo za stestirat, sm sam neki na kruto vrgu notr
+        this.volume[1].setFilter(this.filter);
+        if (this.renderer) {
+            this.renderer.setVolume(this.volume);
+        }
+        // console.log(this.volume[0].getTexture());
+        // console.log(this.volume[1].getTexture());
     }
+    else 
+    {
+        for (let index = 0; index < numModalities; index++) {
+            this.volume.push(new WebGPUVolume(this.device, reader));
+            this.volume[index].addEventListener('progress', e => {
+                this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+            });
+            await this.volume[index].loadAll(index);
+            this.volume[index].setFilter(this.filter);
+        }
+        if (this.renderer) {
+            this.renderer.setVolume(this.volume);
+        }
+    }
+    // console.log(this.volume.length);
 }
 
 setVolMat(r, t, s) {
-    this.volume.setModelMatrix(r, t, s);
+    for (let index = 0; index < this.volume.length; index++) {
+        this.volume[index].setModelMatrix(r, t, s);
+    }
 }
 
 async setEnvironmentMap(image) {
@@ -157,6 +205,7 @@ chooseRenderer(renderer) {
         resolution: this.resolution,
     });
     this.renderer.reset();
+    
     if (this.toneMapper) {
         this.toneMapper.setTexture(this.renderer.getTexture(), this.renderer.getTextureSampler());
     }

@@ -28,7 +28,7 @@ constructor() {
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
 
     this.binds = DOMUtils.bind(document.body);
-    console.log(this.binds);
+    // console.log(this.binds);
 
     this.renderingContext = new WebGPURenderingContext(() => {
     ////////////////////////////////////////////////////////////////
@@ -39,17 +39,17 @@ constructor() {
 
     this.mainDialog = new MainDialog();
     this.binds.sidebarContainer.appendChild(this.mainDialog.object);
-    console.log(this.mainDialog);
+    // console.log(this.mainDialog);
 
     this.volumeLoadDialog = new VolumeLoadDialog();
     this.mainDialog.getVolumeLoadContainer().appendChild(this.volumeLoadDialog.object);
     this.volumeLoadDialog.addEventListener('load', this._handleVolumeLoad);
-    console.log(this.volumeLoadDialog);
+    // console.log(this.volumeLoadDialog);
 
     this.envmapLoadDialog = new EnvmapLoadDialog();
     this.mainDialog.getEnvmapLoadContainer().appendChild(this.envmapLoadDialog.object);
     this.envmapLoadDialog.addEventListener('load', this._handleEnvmapLoad);
-    console.log(this.envmapLoadDialog);
+    // console.log(this.envmapLoadDialog);
 
     this.renderingContextDialog = new RenderingContextDialog();
     this.mainDialog.getRenderingContextSettingsContainer().appendChild(
@@ -79,7 +79,7 @@ constructor() {
             this.renderingContextDialog.fullscreen);
     });
 
-    console.log(this.renderingContextDialog);
+    // console.log(this.renderingContextDialog);
 
     new ResizeObserver(entries => {
         const size = entries[0].contentBoxSize[0];
@@ -138,8 +138,18 @@ _handleRendererChange() {
     const which = this.mainDialog.getSelectedRenderer();
     this.renderingContext.chooseRenderer(which);
     const renderer = this.renderingContext.renderer;
-    console.log(renderer);
+    
     const object = DialogConstructor.construct(renderer.properties);
+    object.childNodes.forEach(element => {
+        if (element.nodeName == "UI-TRANSFER-FUNCTION") {
+            element.style.backgroundRepeat = "no-repeat";
+            if (this.renderingContext.volume[0])
+                element.style.backgroundImage = 'url('+this.renderingContext.volume[0].tfAccumulatedGM+')';
+            else
+                element.style.backgroundImage = "none";
+        }
+    });
+    
     const binds = DOMUtils.bind(object);
     this.rendererDialog = object;
     for (const name in binds) {
@@ -153,9 +163,6 @@ _handleRendererChange() {
     }
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
-    // container.appendChild(this.rendererDialog);
-    // container.appendChild(this.rendererDialog);
-    // container.appendChild(this.rendererDialog);
 }
 
 _handleToneMapperChange() {
@@ -184,6 +191,7 @@ _handleToneMapperChange() {
 
 async _handleVolumeLoad(e) {
     const options = e.detail;
+    console.log(options);
     if (options.type === 'file') {
         const readerClass = ReaderFactory(options.filetype);
         if (readerClass) {
@@ -196,7 +204,9 @@ async _handleVolumeLoad(e) {
                 bits   : options.precision,
             });
             this.renderingContext.stopRendering();
-            await this.renderingContext.setVolume(reader);
+            var numModalities = await reader.readMetadata();
+            // console.log(numModalities.modalities.length);
+            await this.renderingContext.setVolumes(reader, numModalities.modalities.length);
             this.renderingContext.startRendering();
         }
     } else if (options.type === 'url') {
@@ -210,6 +220,7 @@ async _handleVolumeLoad(e) {
             this.renderingContext.startRendering();
         }
     }
+    this._handleRendererChange(); // pokličem še enkrat da nalouda skalkuliran histogram v ozadje
 }
 
 _handleEnvmapLoad(e) {

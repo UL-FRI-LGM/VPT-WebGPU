@@ -11,9 +11,9 @@
     position: relative;
 }
 
-canvas {
+/* canvas {
     background: url('../../../images/alpha-checkerboard.png') repeat;
-}
+} */
 
 .bump {
     width: 0;

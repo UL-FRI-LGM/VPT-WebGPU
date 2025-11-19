@@ -25,11 +25,28 @@ uniform vec2 uPosition;
 uniform vec2 uSize;
 uniform vec4 uColor;
 
+uniform sampler2D uImage;
+uniform bool uUseTexture;
+uniform float uMixFactor;
+
 in vec2 vPosition;
 
 out vec4 oColor;
 
+// void main() {
+//     float r = length((uPosition - vPosition) / uSize);
+//     oColor = uColor * exp(-r * r);
+// }
+
 void main() {
     float r = length((uPosition - vPosition) / uSize);
-    oColor = uColor * exp(-r * r);
+    vec4 gaussianColor = uColor * exp(-r * r);
+
+    vec4 texColor = texture(uImage, vPosition);
+
+    if (uUseTexture) {
+        oColor = mix(gaussianColor, texColor, uMixFactor);
+    } else {
+        oColor = gaussianColor;
+    }
 }
