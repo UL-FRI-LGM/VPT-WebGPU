@@ -1,5 +1,9 @@
 import { WebGL } from './WebGL.js';
 import { mat4, vec3, quat } from '../lib/gl-matrix-module.js';
+import tsnejs from '../lib/tsne.js';
+
+const model = new tsnejs.tSNE({ perplexity: 20 });
+console.log(model)
 
 export class WebGPUVolume extends EventTarget {
 
@@ -48,6 +52,16 @@ async readModality(modalityName) {
         await this.readMetadata();
     }
 
+    
+
+    // let test = new TSNE({
+    //     dim: 2,
+    //     perplexity: 30.0,
+    //     earlyExaggeration: 4.0,
+    //     learningRate: 100.0,
+    //     nIter: 1000,
+    //     metric: 'euclidean'
+    // });    
     // console.log(this.metadata.modalities[0]);
 
     // const modality = this.metadata.modalities.find(modality => modality.name === modalityName);
