@@ -1,9 +1,7 @@
 import { WebGL } from './WebGL.js';
 import { mat4, vec3, quat } from '../lib/gl-matrix-module.js';
 import tsnejs from '../lib/tsne.js';
-
-const model = new tsnejs.tSNE({ perplexity: 20 });
-console.log(model)
+import skmeans from '../lib/skmeans.js';
 
 export class WebGPUVolume extends EventTarget {
 
@@ -52,16 +50,6 @@ async readModality(modalityName) {
         await this.readMetadata();
     }
 
-    
-
-    // let test = new TSNE({
-    //     dim: 2,
-    //     perplexity: 30.0,
-    //     earlyExaggeration: 4.0,
-    //     learningRate: 100.0,
-    //     nIter: 1000,
-    //     metric: 'euclidean'
-    // });    
     // console.log(this.metadata.modalities[0]);
 
     // const modality = this.metadata.modalities.find(modality => modality.name === modalityName);
@@ -166,20 +154,71 @@ async readModalities(which) {
         magFilter: "linear",
         minFilter: "linear"
     });
+    const _skmeans = skmeans;
+    let multidim = [];
+    for (const { index, position } of modality.placements) {
+        const data = await this._reader.readBlock(index);
+        const block = this.metadata.blocks[index];
+        const { width, height, depth } = block.dimensions;
+        const { x, y, z } = position;
+        const typedData = this._typize(data, type);
+        console.log(typedData);
+        // let output = _skmeans(typedData, 4);
+        // console.log(output.idxs);
+        // console.log("typedData length: "+typedData.length)
+        // for (let i = 0; i < output.idxs.length; i+=2) {
+        //     this.tfArray[output.idxs[i+1] * 256 + output.idxs[i]]++;
+        // }
+        for (let i = 0; i < typedData.length; i+=2) {
+            this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
+        }
+        // multidim.push(typedData);
+    }
+
+    // console.log("this.tfArray length: "+this.tfArray.length);
+    console.log(this.tfArray);
+
+    // let test = new TSNE({
+    //     dim: 2,
+    //     perplexity: 30.0,
+    //     earlyExaggeration: 4.0,
+    //     learningRate: 100.0,
+    //     nIter: 1000,
+    //     metric: 'euclidean'
+    // });
+
+    // test.init({
+    //     data: this.tfArray,
+    //     type: 'dense'
+    // });
+
+    // let [error, iter] = test.run();
+
+    // // console.log(error);
+
+    // let output = test.getOutput();
+
+    
+
+    // console.log(output.idxs);
+
     let remainingBlocks = modality.placements.length;
     for (const { index, position } of modality.placements) {
         const data = await this._reader.readBlock(index);
         const block = this.metadata.blocks[index];
         const { width, height, depth } = block.dimensions;
         const { x, y, z } = position;
-
         const typedData = this._typize(data, type);
-        for (let i = 0; i < typedData.length; i+=2) {
-            this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
-        }
+        // console.log(typedData);
+
+        // for (let i = 0; i < typedData.length; i+=2) {
+        //     this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
+        // }
+
         remainingBlocks--;
         if (remainingBlocks === 0) {
             const m = Math.log(Math.max(...this.tfArray));
+            console.log(m);
             let tf = new Array(this.tfArray.length * 4);
             for (let j = 0; j < this.tfArray.length; j++) {
                 const v = 255 - Math.log(this.tfArray[j]) / m * 255;
@@ -189,7 +228,8 @@ async readModalities(which) {
                 tf[4*j+3] = 255;
             }
             this.tfArray = tf;
-            // console.log(this.tfArray);
+            // console.log("output length: "+output.idxs.length+", this.tfArray length: "+this.tfArray.length);
+            console.log(this.tfArray);
             const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
             const canv = document.createElement('canvas');
             canv.width = 256;
@@ -221,6 +261,62 @@ async readModalities(which) {
         const progress = (index + 1) / modality.placements.length;
         this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
     }
+    
+    // backup (preden sem uturu tSNE notr - dela)
+    // for (const { index, position } of modality.placements) {
+    //     const data = await this._reader.readBlock(index);
+    //     const block = this.metadata.blocks[index];
+    //     const { width, height, depth } = block.dimensions;
+    //     const { x, y, z } = position;
+    //     const typedData = this._typize(data, type);
+    //     console.log(typedData);
+    //     for (let i = 0; i < typedData.length; i+=2) {
+    //         this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
+    //     }
+    //     remainingBlocks--;
+    //     if (remainingBlocks === 0) {
+    //         const m = Math.log(Math.max(...this.tfArray));
+    //         let tf = new Array(this.tfArray.length * 4);
+    //         for (let j = 0; j < this.tfArray.length; j++) {
+    //             const v = 255 - Math.log(this.tfArray[j]) / m * 255;
+    //             tf[4*j] = v;
+    //             tf[4*j+1] = v;
+    //             tf[4*j+2] = v;
+    //             tf[4*j+3] = 255;
+    //         }
+    //         this.tfArray = tf;
+    //         // console.log(this.tfArray);
+    //         const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
+    //         const canv = document.createElement('canvas');
+    //         canv.width = 256;
+    //         canv.height = 256;
+    //         const ctx = canv.getContext('2d');
+    //         ctx.putImageData(imgData, 0, 0);
+    //         this.tfAccumulatedGM = canv.toDataURL();
+    //     }
+
+    //     device.queue.writeTexture(
+    //         {
+    //             label: 'Volume Texture',
+    //             texture: this.texture,
+    //             origin: [x, y, z]
+    //         },
+    //         this._typize(data, type),
+    //         {
+    //             offset: 0,
+    //             bytesPerRow: width * 4,
+    //             rowsPerImage: height
+    //         },
+    //         {
+    //             width,
+    //             height,
+    //             depthOrArrayLayers: depth
+    //         }
+    //     );
+
+    //     const progress = (index + 1) / modality.placements.length;
+    //     this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+    // }
 
     this.ready = true;
 }
