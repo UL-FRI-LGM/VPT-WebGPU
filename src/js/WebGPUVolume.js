@@ -1,4 +1,5 @@
 import { WebGL } from './WebGL.js';
+import { mat4 } from '../lib/gl-matrix-module.js';
 
 export class WebGPUVolume extends EventTarget {
 
@@ -13,6 +14,7 @@ constructor(device, reader, options = {}) {
     this.texture = null;
     this.textureSampler = null;
     this.modality = null;
+    this.modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
 }
 
 destroy() {

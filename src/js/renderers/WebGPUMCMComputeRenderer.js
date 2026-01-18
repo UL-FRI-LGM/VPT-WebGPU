@@ -80,7 +80,7 @@ constructor(device, volume, camera, environment, options = {}) {
         usage: GPUBufferUsage.STORAGE
     });
 
-    
+
     this._renderUniformBuffer = device.createBuffer({
         size: 96,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -98,7 +98,7 @@ constructor(device, volume, camera, environment, options = {}) {
         }
     });
 
-    
+
     this._resetUniformBuffer = device.createBuffer({
         size: 80,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -126,8 +126,7 @@ destroy() {
 _resetFrame() {
     const device = this._device;
 
-    // TODO: get model matrix from volume
-    const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    const modelMatrix = this._volume.modelMatrix;
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 
@@ -170,8 +169,7 @@ _resetFrame() {
 _renderFrame() {
     const device = this._device;
 
-    // TODO: get model matrix from volume
-    const modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    const modelMatrix = this._volume.modelMatrix;
     const viewMatrix = this._camera.transform.inverseGlobalMatrix;
     const projectionMatrix = this._camera.getComponent(PerspectiveCamera).projectionMatrix;
 

@@ -33,6 +33,11 @@ _addEventListeners() {
 }
 
 async _loadDemoJson() {
+    // Skip loading demo env-maps on localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return;
+    }
+
     try {
         const response = await fetch('demo-envmaps.json');
         this._demos = await response.json();

@@ -33,6 +33,11 @@ _addEventListeners() {
 }
 
 async _loadDemoJson() {
+    // Skip loading demo volumes on localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return;
+    }
+
     try {
         const response = await fetch('demo-volumes.json');
         this._demos = await response.json();
@@ -55,6 +60,16 @@ _getVolumeTypeFromURL(filename) {
         'zip'  : 'zip',
     };
     return exnToType[exn] || 'raw';
+}
+
+_parseDimensionsFromFilename(filename) {
+    // Match patterns like: 512x512x540, volume_512x512x540.raw, etc.
+    const match = filename.match(/(\d+)x(\d+)x(\d+)/);
+    if (match) {
+        const [_, width, height, depth] = match;
+        return [parseInt(width, 10), parseInt(height, 10), parseInt(depth, 10)];
+    }
+    return null;
 }
 
 _handleLoadClick() {
@@ -144,6 +159,14 @@ _handleFileChange() {
         const file = files[0];
         const type = this._getVolumeTypeFromURL(file.name);
         DOMUtils.toggle(this.binds.rawSettingsPanel, type === 'raw');
+
+        // Auto-parse dimensions from filename for raw files
+        if (type === 'raw') {
+            const dimensions = this._parseDimensionsFromFilename(file.name);
+            if (dimensions) {
+                this.binds.dimensions.value = dimensions;
+            }
+        }
     }
     this._updateLoadButtonAndProgressVisibility();
 }

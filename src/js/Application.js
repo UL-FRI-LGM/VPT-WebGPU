@@ -1,4 +1,5 @@
 import { DOMUtils } from './utils/DOMUtils.js';
+import { mat4 } from '../lib/gl-matrix-module.js';
 
 import './ui/UI.js';
 
@@ -57,7 +58,29 @@ constructor() {
         const t = this.renderingContextDialog.translation;
         const r = this.renderingContextDialog.rotation;
         const s = this.renderingContextDialog.scale;
-        // TODO fix model transform
+
+        // Convert degrees to radians
+        const DEG_TO_RAD = Math.PI / 180;
+        const rotation = [
+            r[0] * DEG_TO_RAD,
+            r[1] * DEG_TO_RAD,
+            r[2] * DEG_TO_RAD
+        ];
+
+        // Compute model matrix: T * R * S
+        const modelMatrix = mat4.create();
+        mat4.translate(modelMatrix, modelMatrix, t);
+        mat4.rotateX(modelMatrix, modelMatrix, rotation[0]);
+        mat4.rotateY(modelMatrix, modelMatrix, rotation[1]);
+        mat4.rotateZ(modelMatrix, modelMatrix, rotation[2]);
+        mat4.scale(modelMatrix, modelMatrix, s);
+
+        if (this.renderingContext.volume) {
+            this.renderingContext.volume.modelMatrix = modelMatrix;
+        }
+        if (this.renderingContext.renderer) {
+            this.renderingContext.renderer.reset();
+        }
     });
     this.renderingContextDialog.addEventListener('filter', e => {
         const filter = this.renderingContextDialog.filter;
