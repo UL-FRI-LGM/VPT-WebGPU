@@ -8,6 +8,7 @@ const EPS: f32 = 1e-5;
 struct Uniforms {
     mvpInverseMatrix: mat4x4f,
     inverseResolution: vec2f,
+    resolution: vec2f,
     randSeed: f32,
     blur: f32,
     extinction: f32,
@@ -94,9 +95,15 @@ fn compute_main(
     @builtin(global_invocation_id) globalId : vec3u,
     @builtin(num_workgroups) numWorkgroups: vec3u
 ) {
-    let globalSize: vec3u = vec3u(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y, 1u) * numWorkgroups;
-    let globalIndex: u32 = globalId.x + globalId.y * globalSize.x;
-    if (globalIndex > arrayLength(&uPhotons)) {
+    let res = vec2u(uniforms.resolution);
+
+    // Check if this work item is within actual resolution bounds
+    if (globalId.x >= res.x || globalId.y >= res.y) {
+        return;
+    }
+
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uPhotons)) {
         return;
     }
 
@@ -157,6 +164,7 @@ override WORKGROUP_SIZE_Y: u32;
 struct Uniforms {
     mvpInverseMatrix: mat4x4f,
     inverseResolution: vec2f,
+    resolution: vec2f,
     randSeed: f32,
     blur: f32
 };
@@ -184,14 +192,20 @@ fn compute_main(
     @builtin(global_invocation_id) globalId : vec3u,
     @builtin(num_workgroups) numWorkgroups: vec3u
 ) {
-    let globalSize: vec3u = vec3u(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y, 1u) * numWorkgroups;
-    let globalIndex: u32 = globalId.x + globalId.y * globalSize.x;
-    if (globalIndex > arrayLength(&uPhotons)) {
+    let res = vec2u(uniforms.resolution);
+
+    // Check if this work item is within actual resolution bounds
+    if (globalId.x >= res.x || globalId.y >= res.y) {
         return;
     }
-    
+
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uPhotons)) {
+        return;
+    }
+
     let screenPosition: vec2f = ((vec2f(globalId.xy) + 0.5) * uniforms.inverseResolution - 0.5) * vec2f(2.0, -2.0); // TODO: Double check this
-    
+
     var photon: Photon;
     var fromPos: vec3f;
     var toPos: vec3f;

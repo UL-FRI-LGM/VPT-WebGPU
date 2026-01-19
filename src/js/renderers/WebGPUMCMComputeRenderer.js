@@ -82,7 +82,7 @@ constructor(device, volume, camera, environment, options = {}) {
 
 
     this._renderUniformBuffer = device.createBuffer({
-        size: 96,
+        size: 112,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     this._renderPipeline = device.createComputePipeline({
@@ -100,7 +100,7 @@ constructor(device, volume, camera, environment, options = {}) {
 
 
     this._resetUniformBuffer = device.createBuffer({
-        size: 80,
+        size: 96,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     this._resetPipeline = device.createComputePipeline({
@@ -115,6 +115,23 @@ constructor(device, volume, camera, environment, options = {}) {
             }
         }
     });
+}
+
+_rebuildBuffers() {
+    const photonSize = 64;
+    const bufferSize = this._resolution * this._resolution * photonSize;
+
+    if (this._photonBuffer) {
+        this._photonBuffer.destroy();
+    }
+    this._photonBuffer = this._device.createBuffer({
+        size: bufferSize,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+
+    // Note: Buffer is initialized by the reset shader, not here
+
+    super._rebuildBuffers();
 }
 
 destroy() {
@@ -139,6 +156,7 @@ _resetFrame() {
     device.queue.writeBuffer(this._resetUniformBuffer, 0, matrix); // uniforms.mvpInverseMatrix
     device.queue.writeBuffer(this._resetUniformBuffer, 64, new Float32Array([
         1 / this._resolution, 1 / this._resolution, // uniforms.inverseResolution
+        this._resolution, this._resolution,         // uniforms.resolution
         Math.random(),                              // uniforms.randSeed
         0,                                          // uniforms.blur
     ]));
@@ -182,12 +200,13 @@ _renderFrame() {
     device.queue.writeBuffer(this._renderUniformBuffer, 0, matrix);
     device.queue.writeBuffer(this._renderUniformBuffer, 64, new Float32Array([
         1 / this._resolution, 1 / this._resolution, // uniforms.inverseResolution
+        this._resolution, this._resolution,         // uniforms.resolution
         Math.random(),                              // uniforms.randSeed
         0,                                          // uniforms.blur
         this.extinction,                            // uniforms.extinction
         this.anisotropy,                            // uniforms.anisotropy
     ]));
-    device.queue.writeBuffer(this._renderUniformBuffer, 88, new Uint32Array([
+    device.queue.writeBuffer(this._renderUniformBuffer, 96, new Uint32Array([
         this.bounces,                               // uniforms.bounces
         this.steps                                  // uniforms.steps
     ]));
