@@ -86,6 +86,24 @@
                         <ui-progress-bar bind="animationProgress" value="0"></ui-progress-bar>
                     </ui-field>
                 </ui-accordion>
+                <ui-accordion bind="neuralDevContainer">
+                    <span slot="label">Neural dev</span>
+                    <style>
+                        .neural-button-row {
+                            display: flex;
+                            gap: 5px;
+                            padding: 0 var(--horizontal-margin, 10px);
+                        }
+                        .neural-button-row button {
+                            flex: 1;
+                        }
+                    </style>
+                    <div class="neural-button-row">
+                        <button bind="neuralPlay">Play</button>
+                        <button bind="neuralPause">Pause</button>
+                        <button bind="neuralStop">Stop</button>
+                    </div>
+                </ui-accordion>
             </div>
 
             <div slot="header">About</div>

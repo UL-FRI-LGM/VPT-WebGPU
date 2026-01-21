@@ -171,6 +171,7 @@ struct Uniforms {
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var<storage, read_write> uPhotons: array<Photon>; // TODO: Check if it's possible to use read only
+@group(0) @binding(2) var uRadiance: texture_storage_2d<rgba16float, write>;
 
 
 #include <Photon>
@@ -221,4 +222,5 @@ fn compute_main(
     photon.samples = 0u;
 
     uPhotons[globalIndex] = photon;
+    textureStore(uRadiance, globalId.xy, vec4f(photon.radiance, 1.0));
 }

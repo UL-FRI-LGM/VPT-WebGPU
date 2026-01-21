@@ -171,6 +171,10 @@ _resetFrame() {
             {
                 binding: 1,
                 resource: { buffer: this._photonBuffer }
+            },
+            {
+                binding: 2,
+                resource: this._renderBuffer.getAttachments()[0].texture.createView()
             }
         ]
     });

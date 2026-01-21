@@ -53,6 +53,8 @@ constructor(onInitialized, options = {}) {
     this.cameraAnimator = new OrbitCameraAnimator(this.camera, this.canvas);
 
     // this.volume = new WebGPUVolume(this.device);
+
+    this.rendererPaused = false;
 }
 
 // ============================ WEBGPU SUBSYSTEM ============================ //
@@ -184,7 +186,9 @@ render() {
         return;
     }
 
-    this.renderer.render();
+    if (!this.rendererPaused) {
+        this.renderer.render();
+    }
     this.toneMapper.render();
 
     const bindGroup = device.createBindGroup({

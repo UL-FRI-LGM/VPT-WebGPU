@@ -111,6 +111,11 @@ constructor() {
     this._handleToneMapperChange();
 
     this.mainDialog.addEventListener('recordanimation', this._handleRecordAnimation);
+
+    // Neural dev controls
+    this.mainDialog.addEventListener('neuralplay', this._handleNeuralPlay.bind(this));
+    this.mainDialog.addEventListener('neuralpause', this._handleNeuralPause.bind(this));
+    this.mainDialog.addEventListener('neuralstop', this._handleNeuralStop.bind(this));
     ////////////////////////////////////////////////////////////////
     }); // TODO: Remove
 }
@@ -235,6 +240,25 @@ _handleEnvmapLoad(e) {
         reader.readAsDataURL(options.file);
     } else if (options.type === 'url') {
         image.src = options.url;
+    }
+}
+
+_handleNeuralPlay() {
+    if (this.renderingContext.renderer) {
+        this.renderingContext.rendererPaused = false;
+    }
+}
+
+_handleNeuralPause() {
+    if (this.renderingContext.renderer) {
+        this.renderingContext.rendererPaused = true;
+    }
+}
+
+_handleNeuralStop() {
+    if (this.renderingContext.renderer) {
+        this.renderingContext.rendererPaused = true;
+        this.renderingContext.renderer.reset();
     }
 }
 
