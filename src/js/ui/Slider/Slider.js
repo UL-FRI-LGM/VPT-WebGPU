@@ -4,6 +4,14 @@ const template = document.createElement('template');
 template.innerHTML = await fetch(new URL('./Slider.html', import.meta.url))
     .then(response => response.text());
 
+function parseOrDefault(value, defaultValue) {
+    const v = Number(value);
+    if (isNaN(v)) {
+        return defaultValue;
+    }
+    return v;
+}
+
 export class Slider extends HTMLElement {
 
 constructor() {
@@ -24,10 +32,10 @@ constructor() {
     this.addEventListener('wheel', this.wheelListener);
 }
 
-get value() { return Number(this.getAttribute('value') ?? 0); }
-get min() { return Number(this.getAttribute('min') ?? 0); }
-get max() { return Number(this.getAttribute('max') ?? 100); }
-get step() { return Number(this.getAttribute('step') ?? 1); }
+get value() { return parseOrDefault(this.getAttribute('value'), 0); }
+get min() { return parseOrDefault(this.getAttribute('min'), 0); }
+get max() { return parseOrDefault(this.getAttribute('max'), 100); }
+get step() { return parseOrDefault(this.getAttribute('step'), (this.max - this.min) / 100); }
 
 set value(value) { this.setAttribute('value', value); }
 set min(min) { this.setAttribute('min', min); }
@@ -98,6 +106,9 @@ pointermoveListener(e) {
 }
 
 wheelListener(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
     let wheel = e.deltaY;
     if (wheel < 0) {
         wheel = 1;
