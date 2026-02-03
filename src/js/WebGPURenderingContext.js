@@ -186,9 +186,7 @@ render() {
         return;
     }
 
-    if (!this.rendererPaused) {
-        this.renderer.render();
-    }
+    this.renderer.render();
     this.toneMapper.render();
 
     const bindGroup = device.createBindGroup({

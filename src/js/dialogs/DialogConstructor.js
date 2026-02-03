@@ -10,6 +10,11 @@ static construct(properties) {
             const accordion = `<ui-accordion><span slot="label">Transfer function</span>${widget}</ui-accordion>`;
             const instance = DOMUtils.instantiate(accordion);
             panel.appendChild(instance);
+        } else if (property.label === undefined) {
+            // No label - widget spans the whole row
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = widget;
+            panel.appendChild(wrapper.firstElementChild || wrapper.firstChild);
         } else {
             const field = `<ui-field><label slot="label">${property.label}</label>${widget}</ui-field>`;
             const instance = DOMUtils.instantiate(field);
@@ -28,6 +33,15 @@ static constructProperty(property) {
         case 'checkbox': return `<ui-checkbox bind="${property.name}" ${property.value ? "checked" : ""}></ui-checkbox>`;
         case 'color-chooser': return `<ui-color-chooser bind="${property.name}" value="${property.value}"></ui-color-chooser>`;
         case 'transfer-function': return `<ui-transfer-function bind="${property.name}"></ui-transfer-function>`;
+        case 'button':
+            const button = `<button type="button" data-action="${property.name}">${property.buttonLabel}</button>`;
+            return `<div style="padding: 0 10px">${button}</div>`
+        case 'button-row':
+            const buttons = property.items.map(item =>
+                `<button type="button" data-action="${item.action}">${item.label}</button>`
+            ).join('');
+            return `<div style="display: flex; gap: 5px; padding: 0 10px;">${buttons}</div>`;
+        case 'text': return `<span style="display: inline-block;" bind="${property.name}">${property.value}</span>`;
         default: return `<div></div>`;
     }
 }

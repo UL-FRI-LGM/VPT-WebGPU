@@ -111,11 +111,6 @@ constructor() {
     this._handleToneMapperChange();
 
     this.mainDialog.addEventListener('recordanimation', this._handleRecordAnimation);
-
-    // Neural dev controls
-    this.mainDialog.addEventListener('neuralplay', this._handleNeuralPlay.bind(this));
-    this.mainDialog.addEventListener('neuralpause', this._handleNeuralPause.bind(this));
-    this.mainDialog.addEventListener('neuralstop', this._handleNeuralStop.bind(this));
     ////////////////////////////////////////////////////////////////
     }); // TODO: Remove
 }
@@ -165,6 +160,26 @@ _handleRendererChange() {
             }));
         });
     }
+    // Handle button clicks (buttons with data-action attribute)
+    const buttons = object.querySelectorAll('button[data-action]');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            renderer.dispatchEvent(new CustomEvent('action', {
+                detail: { action }
+            }));
+        });
+    });
+
+    // Listen for renderer property changes to update UI (for text properties)
+    renderer.addEventListener('change', e => {
+        const { name, value } = e.detail;
+        if (binds[name] && binds[name].tagName === 'SPAN') {
+            // Only update span elements to avoid triggering input change events
+            binds[name].innerText = value;
+        }
+    });
+
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
 }
@@ -240,25 +255,6 @@ _handleEnvmapLoad(e) {
         reader.readAsDataURL(options.file);
     } else if (options.type === 'url') {
         image.src = options.url;
-    }
-}
-
-_handleNeuralPlay() {
-    if (this.renderingContext.renderer) {
-        this.renderingContext.rendererPaused = false;
-    }
-}
-
-_handleNeuralPause() {
-    if (this.renderingContext.renderer) {
-        this.renderingContext.rendererPaused = true;
-    }
-}
-
-_handleNeuralStop() {
-    if (this.renderingContext.renderer) {
-        this.renderingContext.rendererPaused = true;
-        this.renderingContext.renderer.reset();
     }
 }
 
