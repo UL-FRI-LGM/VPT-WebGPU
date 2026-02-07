@@ -71,30 +71,34 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this.addEventListener("action", e => {
             const { action } = e.detail;
             switch (action) {
-                case 'play':
+                case "play":
                     this._playing = true;
                     break;
-                case 'pause':
+                case "pause":
                     this._playing = false;
                     break;
-                case 'stop':
+                case "stop":
                     this._playing = false;
                     this.reset();
                     break;
-                case '_download':
+                case "_download":
                     break;
             }
         });
 
-        // Build shader modules from parts
-        const structCode = SHADERS.renderers.NeuralCache.structs || "";
-        const helpersCode = SHADERS.renderers.NeuralCache.helpers || "";
-        const resetCode = structCode + "\n" + helpersCode + "\n" + SHADERS.renderers.NeuralCache.reset;
-        const renderCode = structCode + "\n" + helpersCode + "\n" + SHADERS.renderers.NeuralCache.render;
+        const commonCode = SHADERS.renderers.NeuralCache.common;
+        const resetCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.reset;
+        const renderCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.render;
 
         this._programs = {
-            reset: device.createShaderModule({ code: resetCode }),
-            render: device.createShaderModule({ code: renderCode }),
+            reset: device.createShaderModule({
+                label: "WebGPUNeuralCacheRenderer reset shader module",
+                code: resetCode,
+            }),
+            render: device.createShaderModule({
+                label: "WebGPUNeuralCacheRenderer render shader module",
+                code: renderCode,
+            }),
         };
 
         this._createBuffers();
@@ -102,7 +106,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     destroy() {
-        this._photonBuffer.destroy();
+        this._radianceBuffer.destroy();
         this._uniformBuffer.destroy();
         super.destroy();
     }
@@ -120,32 +124,31 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         }
     }
 
-    _createBuffers() {
-        const device = this._device;
+    get radianceSize() {
+        return 16;
+    }
 
-        // Photon buffer - one photon per pixel
-        const photonSize = 64;
-        this._photonBuffer = device.createBuffer({
-            size: this._resolution * this._resolution * photonSize,
+    _createBuffers() {
+        // Radiance buffer - one radiance value per pixel
+        this._radianceBuffer = this._device.createBuffer({
+            size: this._resolution * this._resolution * this.radianceSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
         });
 
         // Uniform buffer - shared between reset and render
-        this._uniformBuffer = device.createBuffer({
+        this._uniformBuffer = this._device.createBuffer({
             size: 112,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
     }
 
     _rebuildBuffers() {
-        const photonSize = 64;
-        const bufferSize = this._resolution * this._resolution * photonSize;
-
-        if (this._photonBuffer) {
-            this._photonBuffer.destroy();
+        if (this._radianceBuffer) {
+            this._radianceBuffer.destroy();
         }
-        this._photonBuffer = this._device.createBuffer({
-            size: bufferSize,
+
+        this._radianceBuffer = this._device.createBuffer({
+            size: this._resolution * this._resolution * this.radianceSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
         });
 
@@ -153,9 +156,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     _createPipeline() {
-        const device = this._device;
-
-        this._resetPipeline = device.createComputePipeline({
+        this._resetPipeline = this._device.createComputePipeline({
             label: "WebGPUNeuralCacheRenderer reset pipeline",
             layout: "auto",
             compute: {
@@ -168,7 +169,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             },
         });
 
-        this._renderPipeline = device.createComputePipeline({
+        this._renderPipeline = this._device.createComputePipeline({
             label: "WebGPUNeuralCacheRenderer render pipeline",
             layout: "auto",
             compute: {
@@ -183,39 +184,38 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     _resetFrame() {
-        const device = this._device;
-
         this._updateUniforms();
 
-        const bindGroup = device.createBindGroup({
+        const bindGroup = this._device.createBindGroup({
+            label: "WebGPUNeuralCacheRenderer reset bind group",
             layout: this._resetPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this._uniformBuffer } },
-                { binding: 1, resource: { buffer: this._photonBuffer } },
+                { binding: 1, resource: { buffer: this._radianceBuffer } },
                 { binding: 2, resource: this._renderBuffer.getAttachments()[0].texture.createView() },
             ],
         });
 
-        const encoder = device.createCommandEncoder();
+        const encoder = this._device.createCommandEncoder();
         const pass = encoder.beginComputePass();
         pass.setPipeline(this._resetPipeline);
         pass.setBindGroup(0, bindGroup);
         pass.dispatchWorkgroups(...this._getWorkgroupCount());
         pass.end();
-        device.queue.submit([encoder.finish()]);
+        this._device.queue.submit([encoder.finish()]);
     }
 
     _renderFrame() {
         const startTime = performance.now();
-        const device = this._device;
 
         this._updateUniforms();
 
-        const bindGroup = device.createBindGroup({
+        const bindGroup = this._device.createBindGroup({
+            label: "WebGPUNeuralCacheRenderer render bind group",
             layout: this._renderPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this._uniformBuffer } },
-                { binding: 1, resource: { buffer: this._photonBuffer } },
+                { binding: 1, resource: { buffer: this._radianceBuffer } },
                 { binding: 2, resource: this._renderBuffer.getAttachments()[0].texture.createView() },
                 { binding: 3, resource: this._volume.getTexture().createView() },
                 { binding: 4, resource: this._volume.getTextureSampler() },
@@ -226,23 +226,21 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             ],
         });
 
-        const encoder = device.createCommandEncoder();
+        const encoder = this._device.createCommandEncoder();
         const pass = encoder.beginComputePass();
         pass.setPipeline(this._renderPipeline);
         pass.setBindGroup(0, bindGroup);
         pass.dispatchWorkgroups(...this._getWorkgroupCount());
         pass.end();
-        device.queue.submit([encoder.finish()]);
+        this._device.queue.submit([encoder.finish()]);
 
-        device.queue.onSubmittedWorkDone().then(() => {
+        this._device.queue.onSubmittedWorkDone().then(() => {
             const frameTime = performance.now() - startTime;
             this._updateFPS(startTime, frameTime);
         });
     }
 
     _updateUniforms() {
-        const device = this._device;
-
         // Compute MVP inverse matrix
         const modelMatrix = this._volume.modelMatrix;
         const viewMatrix = this._camera.transform.inverseGlobalMatrix;
@@ -258,15 +256,15 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         randSeed[0] = Math.random();
         const randSeedUint = new Uint32Array(randSeed.buffer);
 
-        device.queue.writeBuffer(this._uniformBuffer, 0, matrix);
-        device.queue.writeBuffer(this._uniformBuffer, 64, new Float32Array([
+        this._device.queue.writeBuffer(this._uniformBuffer, 0, matrix);
+        this._device.queue.writeBuffer(this._uniformBuffer, 64, new Float32Array([
             1 / this._resolution, 1 / this._resolution,
             this._resolution, this._resolution,
             0, // blur
             this.extinction,
             this.anisotropy,
         ]));
-        device.queue.writeBuffer(this._uniformBuffer, 92, new Uint32Array([
+        this._device.queue.writeBuffer(this._uniformBuffer, 92, new Uint32Array([
             randSeedUint[0],
             this.samples,
             this.steps,
