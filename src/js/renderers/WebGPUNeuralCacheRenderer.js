@@ -3,9 +3,8 @@ import { mat4 } from "../../lib/gl-matrix-module.js";
 import { WebGPUAbstractComputeRenderer } from "./WebGPUAbstractComputeRenderer.js";
 import { PerspectiveCamera } from "../PerspectiveCamera.js";
 
-const [ SHADERS, MIXINS ] = await Promise.all([
+const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
-    "mixins-wgsl.json",
 ].map(url => fetch(url).then(response => response.json())));
 
 export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
@@ -22,16 +21,30 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             { name: "anisotropy", label: "Anisotropy", type: "slider", value: 0, min: -1, max: 1 },
 
             // Sampling parameters
-            { name: "samples", label: "Samples", type: "spinner", value: 10, min: 1 },
-            { name: "steps", label: "Steps", type: "spinner", value: 20, min: 1 },
+            { name: "samples", label: "Samples", type: "spinner", value: 1, min: 1 },
+            { name: "bounces", label: "Bounces", type: "spinner", value: 20, min: 1 },
+            { name: "steps", label: "Steps", type: "spinner", value: 500, min: 1 },
 
             { name: "accumulate", label: "Accumulate", type: "checkbox", value: true },
-
-            { name: "_frameTime", label: "Frame time", type: "text", value: "0 ms" },
-            { name: "_fps", label: "FPS", type: "text", value: "0.0" },
+            { name: "stochastic", label: "Stochastic", type: "checkbox", value: true },
 
             {
-                name: "_playbackControls",
+                name: "mode",
+                label: "Display mode",
+                type: "select",
+                value: "global",
+                options: [
+                    { value: "global", label: "Global illumination" },
+                    { value: "direct", label: "Direct radiance" },
+                    { value: "indirect", label: "Indirect radiance" },
+                ]
+            },
+
+            { name: "frameTime", label: "Frame time", type: "text", value: "0 ms" },
+            { name: "fps", label: "FPS", type: "text", value: "0.0" },
+
+            {
+                name: "playbackControls",
                 type: "button-row",
                 items: [
                     { action: "play", label: "Play" },
@@ -40,13 +53,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 ]
             },
 
-            { name: "_dataSize", label: "Data size", type: "text", value: "0 MB" },
-            { name: "_download", buttonLabel: "Download data", type: "button" },
+            { name: "dataSize", label: "Data size", type: "text", value: "0 MB" },
+            { name: "download", buttonLabel: "Download data", type: "button" },
 
             { name: "transferFunction", label: "Transfer function", type: "transfer-function", value: new Uint8Array(256) },
         ]);
-
-        this.accumulate = true;
 
         this.addEventListener("change", e => {
             const { name } = e.detail;
@@ -58,10 +69,12 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             // Reset on parameter changes that affect the path tracing
             if ([
                 "samples",
+                "bounces",
                 "steps",
                 "extinction",
                 "anisotropy",
                 "transferFunction",
+                "stochastic",
             ].includes(name)) {
                 this.reset();
             }
@@ -81,7 +94,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     this._playing = false;
                     this.reset();
                     break;
-                case "_download":
+                case "download":
                     break;
             }
         });
@@ -125,7 +138,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     get radianceSize() {
-        return 16;
+        return 32;
     }
 
     _createBuffers() {
@@ -265,9 +278,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             this.anisotropy,
         ]));
         this._device.queue.writeBuffer(this._uniformBuffer, 92, new Uint32Array([
-            randSeedUint[0],
+            this.stochastic ? randSeedUint[0] : 42,
             this.samples,
+            this.bounces,
             this.steps,
+            ["global", "direct", "indirect"].indexOf(this.mode),
         ]));
     }
 
@@ -293,10 +308,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         }
 
         this.dispatchEvent(new CustomEvent("change", {
-            detail: { name: "_frameTime", value: this._frameTime }
+            detail: { name: "frameTime", value: this._frameTime }
         }));
         this.dispatchEvent(new CustomEvent("change", {
-            detail: { name: "_fps", value: this._fps }
+            detail: { name: "fps", value: this._fps }
         }));
     }
 

@@ -42,6 +42,11 @@ static constructProperty(property) {
             ).join('');
             return `<div style="display: flex; gap: 5px; padding: 0 10px;">${buttons}</div>`;
         case 'text': return `<span style="display: inline-block;" bind="${property.name}">${property.value}</span>`;
+        case 'select':
+            const options = property.options.map(opt =>
+                `<option value="${opt.value}" ${opt.value === property.value ? 'selected' : ''}>${opt.label}</option>`
+            ).join('');
+            return `<select bind="${property.name}">${options}</select>`;
         default: return `<div></div>`;
     }
 }

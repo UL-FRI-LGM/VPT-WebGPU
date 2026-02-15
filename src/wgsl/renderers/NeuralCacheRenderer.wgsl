@@ -17,12 +17,16 @@ struct Uniforms {
     anisotropy: f32,
     randSeed: u32,
     samples: u32,
+    bounces: u32,
     steps: u32,
+    mode: u32,
 };
 
 struct Radiance {
-    value: vec3f,
-    samples: u32,
+    direct: vec3f,
+    directSamples: u32,
+    indirect: vec3f,
+    indirectSamples: u32,
 };
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -44,10 +48,9 @@ fn reset(@builtin(global_invocation_id) globalId: vec3u) {
         return;
     }
 
-    let radiance = Radiance(vec3f(1.0), 0u);
+    let radiance = Radiance(vec3f(1.0), 0, vec3f(1.0), 0);
     uRadiance[globalIndex] = radiance;
-    // Not using .xyz throws a nasty error to debug on Firefox
-    textureStore(uImage, globalId.xy, vec4f(radiance.value.xyz, 1.0));
+    textureStore(uImage, globalId.xy, vec4f(1.0));
 }
 
 // #part /wgsl/shaders/renderers/NeuralCache/render
@@ -81,35 +84,56 @@ fn render(@builtin(global_invocation_id) globalId: vec3u) {
 
     let screenPosition: vec2f = computeScreenPosition(globalId.xy);
     var state: u32 = hash3(vec3u(globalId.x, globalId.y, uniforms.randSeed));
-    var accumulator = Radiance(vec3f(1.0), 0u);
+    var accumulator = Radiance(vec3f(1.0), 0, vec3f(1.0), 0);
 
-    for (var sample: u32 = 0u; sample < uniforms.samples; sample++) {
+    for (var sample: u32 = 0; sample < uniforms.samples; sample++) {
         // Path trace with fresh ray and add radiance to accumulator
         var ray = createRay(screenPosition, &state);
 
-        for (var step: u32 = 0u; step < uniforms.steps; step++) {
+        for (var step: u32 = 0; step < uniforms.steps; step++) {
             let dist: f32 = randomExponential(&state, uniforms.extinction);
             ray.position += dist * ray.direction;
 
             let volumeSample: vec4f = sampleVolumeColor(ray.position);
 
-            let PNull: f32 = 1.0 - volumeSample.a;
-            var PScattering = volumeSample.a * max3(volumeSample.rgb);
-            let PAbsorption: f32 = 1.0 - PNull - PScattering;
+            let PNull = 1.0 - volumeSample.a;
+            let PScattering = select(
+                0, volumeSample.a * max3(volumeSample.rgb),
+                ray.bounces < uniforms.bounces
+            );
+            let PAbsorption = 1.0 - PNull - PScattering;
 
             let fortuneWheel: f32 = randomUniform(&state);
             if (any(ray.position > vec3f(1.0)) || any(ray.position < vec3f(0.0))) {
                 // Out of bounds
                 let envSample: vec4f = sampleEnvironmentMap(ray.direction);
                 let radiance: vec3f = ray.transmittance * envSample.rgb;
-                accumulator.samples++;
-                accumulator.value += (radiance - accumulator.value) / f32(accumulator.samples);
+
+                if (ray.bounces <= 1) {
+                    accumulator.directSamples++;
+                    accumulator.direct += (radiance - accumulator.direct)
+                        / f32(accumulator.directSamples);
+                } else {
+                    accumulator.indirectSamples++;
+                    accumulator.indirect += (radiance - accumulator.indirect)
+                        / f32(accumulator.indirectSamples);
+                }
+
                 break;
             } else if (fortuneWheel < PAbsorption) {
                 // Absorption
                 let radiance: vec3f = vec3f(0.0);
-                accumulator.samples++;
-                accumulator.value += (radiance - accumulator.value) / f32(accumulator.samples);
+
+                if (ray.bounces <= 1) {
+                    accumulator.directSamples++;
+                    accumulator.direct += (radiance - accumulator.direct)
+                        / f32(accumulator.directSamples);
+                } else {
+                    accumulator.indirectSamples++;
+                    accumulator.indirect += (radiance - accumulator.indirect)
+                        / f32(accumulator.indirectSamples);
+                }
+
                 break;
             } else if (fortuneWheel < PAbsorption + PScattering) {
                 // Scattering
@@ -121,13 +145,35 @@ fn render(@builtin(global_invocation_id) globalId: vec3u) {
     }
 
     var stored = uRadiance[globalIndex];
-    if (accumulator.samples > 0u) {
-        let total = f32(stored.samples + accumulator.samples);
-        stored.value = stored.value * f32(stored.samples) / total + accumulator.value * f32(accumulator.samples) / total;
-        stored.samples += accumulator.samples;
+    if (accumulator.directSamples > 0) {
+        stored.directSamples += accumulator.directSamples;
+        stored.direct += (accumulator.direct - stored.direct)
+            * f32(accumulator.directSamples)
+            / f32(stored.directSamples);
+    }
+    if (accumulator.indirectSamples > 0) {
+        stored.indirectSamples += accumulator.indirectSamples;
+        stored.indirect += (accumulator.indirect - stored.indirect)
+            * f32(accumulator.indirectSamples)
+            / f32(stored.indirectSamples);
     }
     uRadiance[globalIndex] = stored;
-    textureStore(uImage, globalId.xy, vec4f(stored.value, 1.0));
+
+    switch uniforms.mode {
+        case 0, default: {
+            let samples = f32(stored.directSamples + stored.indirectSamples);
+            textureStore(uImage, globalId.xy, vec4f(
+                f32(stored.directSamples) / samples * stored.direct
+                + f32(stored.indirectSamples) / samples * stored.indirect,
+            1.0));
+        }
+        case 1: {
+            textureStore(uImage, globalId.xy, vec4f(stored.direct, 1.0));
+        }
+        case 2: {
+            textureStore(uImage, globalId.xy, vec4f(stored.indirect, 1.0));
+        }
+    }
 }
 
 fn hash(val: u32) -> u32 {
