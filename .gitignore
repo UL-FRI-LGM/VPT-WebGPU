@@ -6,3 +6,4 @@ settings
 *.raw
 data/*
 .vscode
+parameter_testing

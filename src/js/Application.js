@@ -205,8 +205,8 @@ async _handleVolumeLoad(e) {
             });
             this.renderingContext.stopRendering();
             var numModalities = await reader.readMetadata();
-            // console.log(numModalities.modalities.length);
-            await this.renderingContext.setVolumes(reader, numModalities.modalities.length);
+            // console.log(numModalities.modalities);
+            await this.renderingContext.setVolumes(reader, numModalities.modalities);
             this.renderingContext.startRendering();
         }
     } else if (options.type === 'url') {

@@ -133,43 +133,71 @@ resize(width, height) {
 
 // to treba dodelat da bo dejansko shranlo vsak volumen v tabelo
 // to bi pol uporabu kot nadomestek za original setVolume() funkcijo
-async setVolumes(reader, numModalities) {
-    this.volume = []
-    if (numModalities < 2)
-    {
+// async setVolumes(reader, numModalities) { // popravi tko da bo load() funkcija use pohendlala, ne rendering context
+//     this.volume = []
+//     if (numModalities.length-1 < 2)
+//     {
+//         this.volume.push(new WebGPUVolume(this.device, reader));
+//         this.volume[0].addEventListener('progress', e => {
+//             this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+//         });
+//         await this.volume[0].loadAll(0);
+//         this.volume[0].setFilter(this.filter);
+//         this.volume.push(new WebGPUVolume(this.device, reader));
+//         this.volume[1].addEventListener('progress', e => {
+//             this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+//         });
+//         await this.volume[1].loadBlank(); // tale loadBlank() funkcija bo za stestirat, sm sam neki na kruto vrgu notr
+//         this.volume[1].setFilter(this.filter);
+//         if (this.renderer) {
+//             this.renderer.setVolume(this.volume);
+//         }
+//         if (numModalities[1].name == 'tsne') {
+//             await this.volume[0].loadAll(1);
+//         }
+//         console.log(this.volume[0].getTexture());
+//         console.log(this.volume[1].getTexture());
+//     }
+//     else 
+//     {
+//         for (let index = 0; index < numModalities.length-1; index++) {
+//             this.volume.push(new WebGPUVolume(this.device, reader));
+//             this.volume[index].addEventListener('progress', e => {
+//                 this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+//             });
+//             await this.volume[index].loadAll(index);
+//             this.volume[index].setFilter(this.filter);
+//         }
+//         if (this.renderer) {
+//             this.renderer.setVolume(this.volume);
+//         }
+//     }
+//     // console.log(this.volume.length);
+// }
+
+async setVolumes(reader, numModalities) { // tuki uporabm ta novo load() funkcijo
+    this.volume = [];
+    for (let index = 0; index < numModalities.length; index++) {
         this.volume.push(new WebGPUVolume(this.device, reader));
-        this.volume[0].addEventListener('progress', e => {
-            this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
-        });
-        await this.volume[0].loadAll(0);
-        this.volume[0].setFilter(this.filter);
-        this.volume.push(new WebGPUVolume(this.device, reader));
-        this.volume[1].addEventListener('progress', e => {
-            this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
-        });
-        await this.volume[1].loadBlank(); // tale loadBlank() funkcija bo za stestirat, sm sam neki na kruto vrgu notr
-        this.volume[1].setFilter(this.filter);
-        if (this.renderer) {
-            this.renderer.setVolume(this.volume);
-        }
-        // console.log(this.volume[0].getTexture());
-        // console.log(this.volume[1].getTexture());
     }
-    else 
-    {
-        for (let index = 0; index < numModalities; index++) {
-            this.volume.push(new WebGPUVolume(this.device, reader));
-            this.volume[index].addEventListener('progress', e => {
-                this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
-            });
+    await this.volume
+    for (let index = 0; index < numModalities.length; index++) {
+        this.volume.push(new WebGPUVolume(this.device, reader));
+        this.volume[index].addEventListener('progress', e => {
+            this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
+        });
+        if (numModalities[index].name == 'tsne') {
+            await this.volume[index].loadBlank();
+            await this.volume[index-1].loadAll(index);
+        }
+        else {
             await this.volume[index].loadAll(index);
-            this.volume[index].setFilter(this.filter);
         }
-        if (this.renderer) {
-            this.renderer.setVolume(this.volume);
-        }
+        this.volume[index].setFilter(this.filter);
     }
-    // console.log(this.volume.length);
+    if (this.renderer) {
+        this.renderer.setVolume(this.volume);
+    }
 }
 
 setVolMat(r, t, s) {

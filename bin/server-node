@@ -1,11 +1,41 @@
 #!/usr/bin/env node
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+// server.js
+import { spawn } from 'node:child_process';
+// import { http } from 'http';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+// const http = require('http');
+// const fs = require('fs');
+// const path = require('path');
 
 const basedir = 'build';
 const port = process.env.PORT || 3000;
+
+export function runPython(bytes) {
+    fs.writeFile('./bin/data.raw', bytes, err => {
+        if (err) {
+            console.error(err);
+        }
+        else {
+            console.log("file written succesfully");
+        }
+    });
+  return new Promise((resolve, reject) => {
+    const p = spawn('python3', ['./bin/processing.py'], {
+        stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const chunks = [];
+    p.stdout.on('data', d => chunks.push(d));
+    p.stderr.on('data', e => console.error(e.toString()));
+
+    p.on('close', code => {
+      if (code !== 0) reject(code);
+      else resolve(Buffer.concat(chunks));
+    });
+  });
+}
 
 http.createServer(function(request, response) {
     const range = request.headers.range;
@@ -95,7 +125,36 @@ http.createServer(function(request, response) {
                 response.end();
             }
         });
-    } else {
+    } else if (request.method === 'POST' && request.url === '/process') {
+        console.log('POST /process hit');
+
+        const chunks = [];
+
+        request.on('data', chunk => {
+            chunks.push(chunk); // Buffer chunks
+        });
+
+        request.on('end', async () => {
+            try {
+                const inputBytes = Buffer.concat(chunks);
+
+                console.log('Received bytes:', inputBytes.length);
+
+                const outputBytes = await runPython(inputBytes);
+
+                response.writeHead(200, {
+                    'Content-Type': 'application/octet-stream'
+                });
+                response.end(outputBytes);
+
+            } catch (err) {
+                console.error(err);
+                response.writeHead(500);
+                response.end('Python failed');
+            }
+        });
+    } 
+    else {
         response.writeHead(404);
         response.end();
     }
