@@ -155,13 +155,7 @@ def main(data):
 
     # print(str(bad) + " NaN values present in zset")
 
-    # print("dataset ready!")
-
     k = math.floor(len(zset) * 0.01)
-
-    # print("begin TSNE + HDBSCAN data clustering...")
-    # for i in range(1, 2):
-    # print("Iteration "+str(i))
 
     indices = np.random.choice(dataset.shape[0], size=k, replace=False)
     sample = dataset[indices]
@@ -187,9 +181,6 @@ def main(data):
     colors = []
     for i in range(len(values)):
         colors.append((random.random() * (255 - 1) + 1, random.random() * (255 - 1) + 1, random.random() * (255 - 1) + 1))
-    
-    # print(sample.dtype)
-    # print(labels.dtype)
 
     minX, maxX = math.inf, -math.inf
     minY, maxY = math.inf, -math.inf
@@ -244,32 +235,27 @@ def main(data):
             # else:
             tf[idx + 3] = 255
 
-    
-    name = "params:_" + str(perp) + "_" + str(exag) + "_" + str(learn) + "_" + str(n)
+    # # ZA IZRISOVANJE PODATKOV V SLIKE
+    # name = "params:_" + str(perp) + "_" + str(exag) + "_" + str(learn) + "_" + str(n)
 
-    path = "./parameter_testing/Neuroni/tsne_hdbscan_11dim_1024"
-    os.makedirs(path, exist_ok=True)
+    # path = "./parameter_testing/Neuroni/tsne_hdbscan_11dim_1024"
+    # os.makedirs(path, exist_ok=True)
 
-    filename = os.path.join(path, f"{name}.pgm")
+    # filename = os.path.join(path, f"{name}.pgm")
 
-    header = (
-        "P7\n"
-        "WIDTH 256\n"
-        "HEIGHT 256\n"
-        "DEPTH 4\n"
-        "MAXVAL 255\n"
-        "TUPLTYPE RGB_ALPHA\n"
-        "ENDHDR\n"
-    )
+    # header = (
+    #     "P7\n"
+    #     "WIDTH 256\n"
+    #     "HEIGHT 256\n"
+    #     "DEPTH 4\n"
+    #     "MAXVAL 255\n"
+    #     "TUPLTYPE RGB_ALPHA\n"
+    #     "ENDHDR\n"
+    # )
 
-    with open(filename, "wb") as f:
-        f.write(header.encode("ascii"))
-        f.write(bytes(tf))
-
-    # print(len(bytes(tf)))
-        
-    # print(bytes(tf))
-    # sys.stdout.buffer.write(tf.tobytes())
+    # with open(filename, "wb") as f:
+    #     f.write(header.encode("ascii"))
+    #     f.write(bytes(tf))
 
     write_block(1, tf.tobytes())
 
@@ -278,10 +264,6 @@ def main(data):
 
     lables_np = np.asarray(labels, dtype=np.int32)
     write_block(3, lables_np.tobytes())
-
-    # sys.stdout.buffer.write(tf.tobytes())
-    # sys.stdout.buffer.write(sample.tobytes())
-    # sys.stdout.buffer.write(labels.tobytes())
 
 data = []
 with open("./bin/data.raw") as f:
@@ -293,12 +275,7 @@ D = int(data[2])
 Channels = int(data[3])
 size = int(data[4])
 
-# Convert to NumPy
 volume = np.asarray(data[5:], dtype=np.uint8)
 volume = volume.reshape((W, H, D, Channels))
 
 main(volume)
-
-# raise RuntimeError("Received volume:", volume.shape, volume.dtype)
-# main(sys.argv)
-# print("Processing finished")
