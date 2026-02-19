@@ -26,6 +26,12 @@ constructor() {
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);
     this._handleEnvmapLoad = this._handleEnvmapLoad.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
+    // this.tsnePerp = 0;
+    // this.tsneExag = 0;
+    // this.tsneLearn = 0;
+    // this.tsneNum = 0;
+    // this.hdbsCluster = 0;
+    // this.hdbsSample = 0;
 
     this.binds = DOMUtils.bind(document.body);
     // console.log(this.binds);
@@ -39,6 +45,8 @@ constructor() {
 
     this.mainDialog = new MainDialog();
     this.binds.sidebarContainer.appendChild(this.mainDialog.object);
+    // console.log(this.binds.sidebarContainer);
+    // this.binds.sidebarContainer.mainDialog.object.compute.addEventListener('click', console.log("clicked"));
     // console.log(this.mainDialog);
 
     this.volumeLoadDialog = new VolumeLoadDialog();
@@ -97,6 +105,9 @@ constructor() {
 
     this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
     this.mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
+    this.mainDialog.addEventListener('computeclusters', e => {
+        this.renderingContext._handleClusterCompute(e).then(img => {this._handleRendererChange(img);});
+    });
     this._handleRendererChange();
     this._handleToneMapperChange();
 
@@ -104,6 +115,27 @@ constructor() {
     ////////////////////////////////////////////////////////////////
     }); // TODO: Remove
 }
+
+// _handleComputeClick(e) {
+//     // console.log("test"); // kako preberem iz input fieldov vrednosti in jih vržem v volume??
+//     this.tsnePerp = e.detail.tsnePerp;
+//     this.tsneExag = e.detail.tsneExag;
+//     this.tsneLearn = e.detail.tsneLearn;
+//     this.tsneNum = e.detail.tsneNum;
+//     this.hdbsCluster = e.detail.hdbsCluster;
+//     this.hdbsSample = e.detail.hdbsSample;
+//     console.log(this.tsnePerp + " " + this.tsneExag + " " + this.tsneLearn + " " + this.tsneNum + " " + this.hdbsCluster + " " + this.hdbsSample);
+//     this.dispatchEvent(new CustomEvent('begincluster', {
+//         detail: {
+//             tsnePerp: e.detail.tsnePerp,
+//             tsneExag: e.detail.tsneExag,
+//             tsneLearn: e.detail.tsneLearn,
+//             tsneNum: e.detail.tsneNum,
+//             hdbsCluster: e.detail.hdbsCluster,
+//             hdbsSample: e.detail.hdbsSample
+//         }
+//     }));
+// }
 
 async _handleRecordAnimation(e) {
     this.renderingContext.recordAnimation(e.detail);
@@ -130,7 +162,7 @@ _handleFileDrop(e) {
     }));
 }
 
-_handleRendererChange() {
+_handleRendererChange(img = null) {
     if (this.rendererDialog) {
         this.rendererDialog.remove();
     }
@@ -140,11 +172,12 @@ _handleRendererChange() {
     const renderer = this.renderingContext.renderer;
     
     const object = DialogConstructor.construct(renderer.properties);
+    console.log(object);
     object.childNodes.forEach(element => {
         if (element.nodeName == "UI-TRANSFER-FUNCTION") {
             element.style.backgroundRepeat = "no-repeat";
-            if (this.renderingContext.volume[0])
-                element.style.backgroundImage = 'url('+this.renderingContext.volume[0].tfAccumulatedGM+')';
+            if (img != null)
+                element.style.backgroundImage = 'url('+img+')';
             else
                 element.style.backgroundImage = "none";
         }
@@ -206,7 +239,7 @@ async _handleVolumeLoad(e) {
             this.renderingContext.stopRendering();
             var numModalities = await reader.readMetadata();
             // console.log(numModalities.modalities);
-            await this.renderingContext.setVolumes(reader, numModalities.modalities);
+            await this.renderingContext.setVolumes(reader, numModalities.modalities, this.tsnePerp, this.tsneExag, this.tsneLearn, this.tsneNum, this.hdbsCluster, this.hdbsSample);
             this.renderingContext.startRendering();
         }
     } else if (options.type === 'url') {

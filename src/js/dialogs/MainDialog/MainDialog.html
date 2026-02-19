@@ -30,6 +30,34 @@
                             <option value="depth">Depth image</option>
                         </select>
                     </ui-field>
+                    <ui-field>
+                        <label slot="label">t-SNE perplexity</label>
+                        <input type="number" bind="tsnePerp" value="5"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">t-SNE exageration</label>
+                        <input type="number" bind="tsneExag" value="1.0"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">t-SNE learning rate</label>
+                        <input type="number" bind="tsneLearn" value="100"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">t-SNE number of iterations</label>
+                        <input type="number" bind="tsneNum" value="200"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">HDBSCAN cluster size</label>
+                        <input type="number" bind="hdbsCluster" value="100"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">HDBSCAN min sample size</label>
+                        <input type="number" bind="hdbsSample" value="5"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">Compute t-SNE & HDBSCAN</label>
+                        <button bind="compute">Compute clusters</button>
+                    </ui-field>
                     <div bind="rendererSettingsContainer"></div>
                 </ui-accordion>
                 <ui-accordion>

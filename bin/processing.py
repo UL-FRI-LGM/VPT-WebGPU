@@ -106,7 +106,7 @@ def write_block(type_id: int, payload: bytes):
     sys.stdout.buffer.write(struct.pack("<II", type_id, len(payload)))
     sys.stdout.buffer.write(payload)
 
-def main(data):
+def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize):
 
     # print("reading data...")
     XR = data[0::4]
@@ -155,23 +155,28 @@ def main(data):
 
     # print(str(bad) + " NaN values present in zset")
 
-    k = math.floor(len(zset) * 0.01)
+    k = math.floor(len(zset) * 0.0005)
 
     indices = np.random.choice(dataset.shape[0], size=k, replace=False)
     sample = dataset[indices]
 
     input_data = np.array(sample)
 
-    perp = random.random() * (50.0 - 35.0) + 35.0
-    exag = random.random() * (50.0 - 1.0) + 1.0
-    learn = random.random() * (1000.0 - 200.0) + 200.0
-    n = int(random.random() * (1000 - 200) + 200)
+    # perp = random.random() * (50.0 - 35.0) + 35.0
+    # exag = random.random() * (50.0 - 1.0) + 1.0
+    # learn = random.random() * (1000.0 - 200.0) + 200.0
+    # n = int(random.random() * (1000 - 200) + 200)
+
+    perp = tsnePerp
+    exag = tsneExag
+    learn = tsneLearn
+    n = tsneNum
 
     output = TSNE(n_components=2, perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
 
     outhdb = hdbscan.HDBSCAN(
-        min_cluster_size=1000,
-        min_samples=100
+        min_cluster_size=hdbsClusterSize,
+        min_samples=hdbsSampleSize
     )
 
     labels = outhdb.fit_predict(output)
@@ -235,7 +240,7 @@ def main(data):
             # else:
             tf[idx + 3] = 255
 
-    # # ZA IZRISOVANJE PODATKOV V SLIKE
+    # # ZA ZAPIS PODATKOV V PGM SLIKE
     # name = "params:_" + str(perp) + "_" + str(exag) + "_" + str(learn) + "_" + str(n)
 
     # path = "./parameter_testing/Neuroni/tsne_hdbscan_11dim_1024"
@@ -269,13 +274,21 @@ data = []
 with open("./bin/data.raw") as f:
     data = f.read().split(',')
 
+# raise RuntimeError(data[:10])
+
 W = int(data[0])
 H = int(data[1])
 D = int(data[2])
 Channels = int(data[3])
 size = int(data[4])
+tsnePerp = int(data[5])
+tsneExag = int(data[6])
+tsneLearn = int(data[7])
+tsneNum = int(data[8])
+hdbsClusterSize = int(data[9])
+hdbsSampleSize = int(data[10])
 
-volume = np.asarray(data[5:], dtype=np.uint8)
+volume = np.asarray(data[11:], dtype=np.uint8)
 volume = volume.reshape((W, H, D, Channels))
-
-main(volume)
+main (volume, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize)
+# main(volume)

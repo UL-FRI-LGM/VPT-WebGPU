@@ -51,48 +51,48 @@ constructor(device, volume, camera, environment, options = {}) {
             type: 'transfer-function',
             value: new Uint8Array([0,0,0,0]),
         },
-        {
-            name: 'transferFunction2',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
-        {
-            name: 'transferFunction3',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
-        {
-            name: 'transferFunction4',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
-        {
-            name: 'transferFunction5',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
-        {
-            name: 'transferFunction6',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
-        {
-            name: 'transferFunction7',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
-        {
-            name: 'transferFunction8',
-            label: 'Transfer function',
-            type: 'transfer-function',
-            value: new Uint8Array([0,0,0,0]),
-        },
+        // {
+        //     name: 'transferFunction2',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
+        // {
+        //     name: 'transferFunction3',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
+        // {
+        //     name: 'transferFunction4',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
+        // {
+        //     name: 'transferFunction5',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
+        // {
+        //     name: 'transferFunction6',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
+        // {
+        //     name: 'transferFunction7',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
+        // {
+        //     name: 'transferFunction8',
+        //     label: 'Transfer function',
+        //     type: 'transfer-function',
+        //     value: new Uint8Array([0,0,0,0]),
+        // },
     ]);
 
     this.addEventListener('change', e => {
@@ -101,40 +101,33 @@ constructor(device, volume, camera, environment, options = {}) {
         if (name === 'transferFunction1') {
             this.setTransferFunction1(this.transferFunction1);
         }
-        if (name === 'transferFunction2') {
-            this.setTransferFunction2(this.transferFunction2);
-        }
-        if (name === 'transferFunction3') {
-            this.setTransferFunction3(this.transferFunction3);
-        }
-        if (name === 'transferFunction4') {
-            this.setTransferFunction4(this.transferFunction4);
-        }
-        if (name === 'transferFunction5') {
-            this.setTransferFunction5(this.transferFunction5);
-        }
-        if (name === 'transferFunction6') {
-            this.setTransferFunction6(this.transferFunction6);
-        }
-        if (name === 'transferFunction7') {
-            this.setTransferFunction7(this.transferFunction7);
-        }
-        if (name === 'transferFunction8') {
-            this.setTransferFunction8(this.transferFunction8);
-        }
+        // if (name === 'transferFunction2') {
+        //     this.setTransferFunction2(this.transferFunction2);
+        // }
+        // if (name === 'transferFunction3') {
+        //     this.setTransferFunction3(this.transferFunction3);
+        // }
+        // if (name === 'transferFunction4') {
+        //     this.setTransferFunction4(this.transferFunction4);
+        // }
+        // if (name === 'transferFunction5') {
+        //     this.setTransferFunction5(this.transferFunction5);
+        // }
+        // if (name === 'transferFunction6') {
+        //     this.setTransferFunction6(this.transferFunction6);
+        // }
+        // if (name === 'transferFunction7') {
+        //     this.setTransferFunction7(this.transferFunction7);
+        // }
+        // if (name === 'transferFunction8') {
+        //     this.setTransferFunction8(this.transferFunction8);
+        // }
 
         if ([
             'extinction',
             'anisotropy',
             'bounces',
             'transferFunction1',
-            'transferFunction2',
-            'transferFunction3',
-            'transferFunction4',
-            'transferFunction5',
-            'transferFunction6',
-            'transferFunction7',
-            'transferFunction8',
         ].includes(name)) {
             this.reset();
         }

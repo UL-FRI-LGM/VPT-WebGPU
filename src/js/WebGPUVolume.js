@@ -17,12 +17,6 @@ constructor(device, reader, options = {}) {
     this.modality = null;
     // this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(0,0,0), vec3.normalize(vec3.create(), vec3.fromValues(1024, 1024, 30))); //hardcoded
     this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(-0.5,-0.5,-0.5), vec3.fromValues(1,1,1)); //hardcoded
-
-    this.tfArray = [];
-    for (let index = 0; index < 256 * 256; index++) {
-        this.tfArray[index] = 0;
-    }
-    this.tfAccumulatedGM = null;
 }
 
 destroy() {
@@ -677,8 +671,8 @@ concat(data) {
 //     this.ready = true;
 // }
 
-// Stari readModalities za bekap
-async readModalities(index) {
+// Nov readModalities
+async readModalities(index, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize) {
     this.ready = false;
 
     if (!this.metadata) {
@@ -694,10 +688,6 @@ async readModalities(index) {
         throw new Error(`Modality '${modalityName}' does not exist`);
     }
     this.modality = modality;
-    const canv = document.createElement('canvas');
-    canv.width = 256;
-    canv.height = 256;
-    const ctx = canv.getContext('2d');
     if (modalityName == 'tsne') {
         const clusterModality = this.metadata.modalities[index-1];
         const { width, height, depth } = clusterModality.dimensions;
@@ -712,17 +702,23 @@ async readModalities(index) {
             }
         }
         let test = new Uint8ClampedArray(fullvolume);
-        let header = new Uint32Array(5);
+        let header = new Uint32Array(11);
         header[0] = width;
         header[1] = height;
         header[2] = depth;
         header[3] = (test.length/(width*height*depth));
         header[4] = test.length;
+        header[5] = tsnePerp;
+        header[6] = tsneExag;
+        header[7] = tsneLearn;
+        header[8] = tsneNum;
+        header[9] = hdbsClusterSize;
+        header[10] = hdbsSampleSize;
         let tfproba = null;
         let sampleproba = null;
         let labelproba = null;
-        // console.log(test);
-        let args = [header[0], header[1], header[2], header[3], header[4], ...test]; // problem: stvar je u stringu ne v dejanskih bajtih!!!!
+        // let args = [header[0], header[1], header[2], header[3], header[4], ...test];
+        let args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], ...test];
         await fetch('/process', {
             method: 'POST',
             body: args,
@@ -730,18 +726,19 @@ async readModalities(index) {
         })
         .then(r => r.arrayBuffer())
         .then(buf => {
-            // const bytes = new Uint8Array(buf);
-            // // decode volume / labels / samples here
-            // // prvo morem vidt kaj shranjujem v fullVolume spremenljivko, bom zamenju inpute
-            let orderedData = this.concat(buf); // morem probat če actually dela, fingers crossed
+            let orderedData = this.concat(buf);
             tfproba = orderedData[0];
             sampleproba = orderedData[1];
             labelproba = orderedData[2];
-            console.log(sampleproba);
-            console.log(labelproba);
-            console.log("tfproba:")
-            console.log(tfproba);
+            // console.log(sampleproba);
+            // console.log(labelproba);
+            // console.log("tfproba:")
+            // console.log(tfproba);
         });
+        const canv = document.createElement('canvas');
+        canv.width = 256;
+        canv.height = 256;
+        const ctx = canv.getContext('2d');
         console.log("tf array length: " + this.tfArray.length);
         this.tfArray = tfproba;
         console.log(this.tfArray);
@@ -749,7 +746,6 @@ async readModalities(index) {
         console.log(imgData);
         ctx.putImageData(imgData, 0, 0);
         this.tfAccumulatedGM = canv.toDataURL();
-        // console.log(this.tfAccumulatedGM);
     }
     else {
         console.log(this.modality);
@@ -816,8 +812,8 @@ async load() {
 //     await this.readModalities(which); // rewrite da bo nalagalo use!!!
 // }
 
-async loadAll(index) {
-    await this.readModalities(index); // rewrite da bo nalagalo use!!!
+async loadAll(index, tsnePerp = 0, tsneExag = 0, tsneLearn = 0, tsneNum = 0, hdbsClusterSize = 0, hdbsSampleSize = 0) {
+    await this.readModalities(index, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize);
 }
 
 
@@ -849,6 +845,70 @@ async loadBlank() {
     this.ready = true;
     return this.texture
 }
+
+// async computeClusters(volume, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize) {
+    
+    
+//     ///////////////////////////////////////////////////////////////////////////////////
+//     const clusterModality = this.metadata.modalities[index]; // verjetno zamenjam z volumes
+//     const { width, height, depth } = clusterModality.dimensions; // verjetno zamenjam z volumes
+//     const { format, internalFormat, type } = clusterModality; // verjetno zamenjam z volumes
+//     let pointer = 0;
+//     for (const { index, position } of clusterModality.placements) { // verjetno zamenjam z volumes
+//         const data = await this._reader.readBlock(index);
+//         const block = this.metadata.blocks[index];
+//         const typedData = this._typize(data, type);
+//         for (let i = 0; i < typedData.length; i++, pointer++) {
+//             fullvolume[pointer] = typedData[i];
+//         }
+//     }
+//     ///////////////////////////////////////////////////////////////////////////////////
+//     let test = new Uint8ClampedArray(fullvolume);
+//     let header = new Uint32Array(11);
+//     header[0] = width;
+//     header[1] = height;
+//     header[2] = depth;
+//     header[3] = (test.length/(width*height*depth));
+//     header[4] = test.length;
+//     header[5] = tsnePerp;
+//     header[6] = tsneExag;
+//     header[7] = tsneLearn;
+//     header[8] = tsneNum;
+//     header[9] = hdbsClusterSize;
+//     header[10] = hdbsSampleSize;
+//     let tfproba = null;
+//     let sampleproba = null;
+//     let labelproba = null;
+//     // let args = [header[0], header[1], header[2], header[3], header[4], ...test];
+//     let args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], ...test];
+//     await fetch('/process', {
+//         method: 'POST',
+//         body: args,
+//         headers: { 'Content-Type': 'application/octet-stream' }
+//     })
+//     .then(r => r.arrayBuffer())
+//     .then(buf => {
+//         let orderedData = this.concat(buf);
+//         tfproba = orderedData[0];
+//         sampleproba = orderedData[1];
+//         labelproba = orderedData[2];
+//         // console.log(sampleproba);
+//         // console.log(labelproba);
+//         // console.log("tfproba:")
+//         // console.log(tfproba);
+//     });
+//     const canv = document.createElement('canvas');
+//     canv.width = 256;
+//     canv.height = 256;
+//     const ctx = canv.getContext('2d');
+//     console.log("tf array length: " + this.tfArray.length);
+//     this.tfArray = tfproba;
+//     console.log(this.tfArray);
+//     const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
+//     console.log(imgData);
+//     ctx.putImageData(imgData, 0, 0);
+//     this.tfAccumulatedGM = canv.toDataURL();
+// }
 
 
 _typize(data, type) {
