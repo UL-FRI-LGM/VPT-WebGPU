@@ -214,10 +214,6 @@ setTransferFunction8(transferFunction) {
     this._transferFunction8 = WebGPU.createTextureFromImageBitmapOrCanvas(device, transferFunction, "rgba8unorm-srgb");
 }
 
-// setHistogram(imgData) {
-//     this._transferFunction1.setBackground(imgData);
-// }
-
 setResolution(resolution) {
     if (resolution !== this._resolution) {
         this._resolution = resolution;

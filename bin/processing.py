@@ -155,7 +155,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # print(str(bad) + " NaN values present in zset")
 
-    k = math.floor(len(zset) * 0.0005)
+    k = math.floor(len(zset) * 0.01)
 
     indices = np.random.choice(dataset.shape[0], size=k, replace=False)
     sample = dataset[indices]
@@ -235,10 +235,10 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
             # tf[idx]     = 0
             # tf[idx + 1] = 0
             # tf[idx + 2] = 0
-            # if (tf[idx + 3] <= 240):
-            #     tf[idx + 3] += 15
-            # else:
-            tf[idx + 3] = 255
+            if (tf[idx + 3] <= 240):
+                tf[idx + 3] += 15
+            else:
+                tf[idx + 3] = 255
 
     # # ZA ZAPIS PODATKOV V PGM SLIKE
     # name = "params:_" + str(perp) + "_" + str(exag) + "_" + str(learn) + "_" + str(n)

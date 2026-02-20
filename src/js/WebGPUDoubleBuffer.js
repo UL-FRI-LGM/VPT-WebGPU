@@ -33,10 +33,6 @@ swap() {
     this._writeAttachments = tmp;
 }
 
-// getAttachments() {
-//     return this._readAttachments;
-// }
-
 getReadAttachments() {
     return this._readAttachments;
 }

@@ -117,26 +117,10 @@ resizeTransferFunction(width, height) {
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 }
 
-// render() {
-//     const gl = this._gl;
-//     const { uniforms } = this._program;
-//     gl.clear(gl.COLOR_BUFFER_BIT);
-//     for (const bump of this.bumps) {
-//         gl.uniform2f(uniforms.uPosition, bump.position.x, bump.position.y);
-//         gl.uniform2f(uniforms.uSize, bump.size.x, bump.size.y);
-//         gl.uniform4f(uniforms.uColor, bump.color.r, bump.color.g, bump.color.b, bump.color.a);
-//         gl.drawArrays(gl.TRIANGLES, 0, 3);
-//     }
-//     // console.log(this.isImage);
-//     // console.log(this.reader);
-// }
-
 render() {
     const gl = this._gl;
     const { uniforms } = this._program;
     
-    // console.log(this.isImage);
-    // console.log(this._program);
     gl.clear(gl.COLOR_BUFFER_BIT);
     if (this.isImage && this.imageTexture) {
         gl.activeTexture(gl.TEXTURE0);

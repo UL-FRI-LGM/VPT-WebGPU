@@ -42,7 +42,6 @@ getEnvmapLoadContainer() {
 }
 
 getRendererSettingsContainer() {
-    // console.log(this.binds.rendererSettingsContainer.object);
     return this.binds.rendererSettingsContainer;
 }
 
@@ -63,8 +62,6 @@ getSelectedToneMapper() {
 }
 
 _handleComputeClick() {
-    // tle bom vrjetnu rabu dat en this.dispatchEvent in poskrbet da on pošlje vrednosti in polaufa funkcijo
-    // console.log(this.binds.tsnePerp.value);
     this.dispatchEvent(new CustomEvent('computeclusters', {
         detail: {
             tsnePerp: Number(this.binds.tsnePerp.value),
@@ -75,10 +72,6 @@ _handleComputeClick() {
             hdbsSample: Number(this.binds.hdbsSample.value)
         }
     }));
-}
-
-getComputeClick() {
-    return this.binds.compute;
 }
 
 _handleRendererChange() {

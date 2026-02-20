@@ -26,12 +26,6 @@ constructor() {
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);
     this._handleEnvmapLoad = this._handleEnvmapLoad.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
-    // this.tsnePerp = 0;
-    // this.tsneExag = 0;
-    // this.tsneLearn = 0;
-    // this.tsneNum = 0;
-    // this.hdbsCluster = 0;
-    // this.hdbsSample = 0;
 
     this.binds = DOMUtils.bind(document.body);
     // console.log(this.binds);
@@ -45,9 +39,6 @@ constructor() {
 
     this.mainDialog = new MainDialog();
     this.binds.sidebarContainer.appendChild(this.mainDialog.object);
-    // console.log(this.binds.sidebarContainer);
-    // this.binds.sidebarContainer.mainDialog.object.compute.addEventListener('click', console.log("clicked"));
-    // console.log(this.mainDialog);
 
     this.volumeLoadDialog = new VolumeLoadDialog();
     this.mainDialog.getVolumeLoadContainer().appendChild(this.volumeLoadDialog.object);
@@ -116,27 +107,6 @@ constructor() {
     }); // TODO: Remove
 }
 
-// _handleComputeClick(e) {
-//     // console.log("test"); // kako preberem iz input fieldov vrednosti in jih vržem v volume??
-//     this.tsnePerp = e.detail.tsnePerp;
-//     this.tsneExag = e.detail.tsneExag;
-//     this.tsneLearn = e.detail.tsneLearn;
-//     this.tsneNum = e.detail.tsneNum;
-//     this.hdbsCluster = e.detail.hdbsCluster;
-//     this.hdbsSample = e.detail.hdbsSample;
-//     console.log(this.tsnePerp + " " + this.tsneExag + " " + this.tsneLearn + " " + this.tsneNum + " " + this.hdbsCluster + " " + this.hdbsSample);
-//     this.dispatchEvent(new CustomEvent('begincluster', {
-//         detail: {
-//             tsnePerp: e.detail.tsnePerp,
-//             tsneExag: e.detail.tsneExag,
-//             tsneLearn: e.detail.tsneLearn,
-//             tsneNum: e.detail.tsneNum,
-//             hdbsCluster: e.detail.hdbsCluster,
-//             hdbsSample: e.detail.hdbsSample
-//         }
-//     }));
-// }
-
 async _handleRecordAnimation(e) {
     this.renderingContext.recordAnimation(e.detail);
 }
@@ -172,7 +142,6 @@ _handleRendererChange(img = null) {
     const renderer = this.renderingContext.renderer;
     
     const object = DialogConstructor.construct(renderer.properties);
-    console.log(object);
     object.childNodes.forEach(element => {
         if (element.nodeName == "UI-TRANSFER-FUNCTION") {
             element.style.backgroundRepeat = "no-repeat";
@@ -224,7 +193,6 @@ _handleToneMapperChange() {
 
 async _handleVolumeLoad(e) {
     const options = e.detail;
-    console.log(options);
     if (options.type === 'file') {
         const readerClass = ReaderFactory(options.filetype);
         if (readerClass) {
