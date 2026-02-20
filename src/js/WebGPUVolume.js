@@ -1,6 +1,5 @@
 import { WebGL } from './WebGL.js';
 import { mat4, vec3, quat } from '../lib/gl-matrix-module.js';
-// import skmeans from '../lib/skmeans.js';
 
 export class WebGPUVolume extends EventTarget {
 
