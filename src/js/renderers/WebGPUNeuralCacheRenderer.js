@@ -14,6 +14,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         this._playing = true;
         this._frameTimes = [];
+        this._groundTruthBytes = 0;
+        this._groundTruthFrames = 0;
+        this._groundTruthZip = new JSZip();
+        this._stagingBufferMapped = false;
 
         this.registerProperties([
             // Volume properties
@@ -39,6 +43,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     { value: "indirect", label: "Indirect radiance" },
                 ]
             },
+            { name: "background", label: "Background", type: "color-chooser", value: "#ffffff" },
 
             { name: "frameTime", label: "Frame time", type: "text", value: "0 ms" },
             { name: "fps", label: "FPS", type: "text", value: "0.0" },
@@ -53,17 +58,26 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 ]
             },
 
+            { name: "store", label: "Store data", type: "checkbox", value: false },
             { name: "dataSize", label: "Data size", type: "text", value: "0 MB" },
             { name: "download", buttonLabel: "Download data", type: "button" },
 
             { name: "transferFunction", label: "Transfer function", type: "transfer-function", value: new Uint8Array(256) },
         ]);
 
+        this._transferFunctionBumps = [];
+
         this.addEventListener("change", e => {
-            const { name } = e.detail;
+            const { name, value, bind } = e.detail;
+
+            const num = parseFloat(value);
+            if (!isNaN(num)) {
+                this[name] = num;
+            }
 
             if (name === "transferFunction") {
                 this.setTransferFunction(this.transferFunction);
+                this._transferFunctionBumps = bind.bumps;
             }
 
             // Reset on parameter changes that affect the path tracing
@@ -75,6 +89,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 "anisotropy",
                 "transferFunction",
                 "stochastic",
+                "background",
             ].includes(name)) {
                 this.reset();
             }
@@ -92,9 +107,35 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     break;
                 case "stop":
                     this._playing = false;
+                    this.clearGroundTruth();
                     this.reset();
                     break;
                 case "download":
+                    // Store current parameters as a file
+                    this._groundTruthZip.file(
+                        "parameters.json",
+                        JSON.stringify(this._getParameters(), null, "    "),
+                    );
+
+                    // Store current transfer function as a file
+                    this._groundTruthZip.file(
+                        "transfer_function.json",
+                        JSON.stringify(this._transferFunctionBumps),
+                    );
+
+                    this._groundTruthZip.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                    }).then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "ground_truth.zip";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    });
                     break;
             }
         });
@@ -121,6 +162,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     destroy() {
         this._radianceBuffer.destroy();
         this._uniformBuffer.destroy();
+        this._groundTruthBuffer.destroy();
+        this._stagingBuffer.destroy();
         super.destroy();
     }
 
@@ -137,33 +180,91 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         }
     }
 
+    clearGroundTruth() {
+        this._groundTruthBytes = 0;
+        this._groundTruthFrames = 0;
+        this._groundTruthZip = new JSZip();
+        this._stagingBufferMapped = false;
+        this.dispatchEvent(new CustomEvent("change", {
+            detail: { name: "dataSize", value: "0 MB" }
+        }));
+    }
+
+    get uniformSize() {
+        return 128;
+    }
+
     get radianceSize() {
         return 32;
     }
 
+    // Packed 8 floats instead of a structure with padding
+    get groundTruthSize() {
+        return 32;
+    }
+
+    get groundTruthMaxBytes() {
+        return 1024 * 1024 * 1024;
+    }
+
     _createBuffers() {
+        const pixels = this._resolution * this._resolution;
+
         // Radiance buffer - one radiance value per pixel
         this._radianceBuffer = this._device.createBuffer({
-            size: this._resolution * this._resolution * this.radianceSize,
+            size: pixels * this.radianceSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
         });
 
         // Uniform buffer - shared between reset and render
         this._uniformBuffer = this._device.createBuffer({
-            size: 112,
+            size: this.uniformSize,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
+
+        // Ground truth data buffer for indirect radiance values
+        this._groundTruthBuffer = this._device.createBuffer({
+            size: pixels * this.groundTruthSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+        });
+
+        this._stagingBuffer = this._device.createBuffer({
+            size: pixels * this.groundTruthSize,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+
+        this._stagingBufferMapped = false;
     }
 
     _rebuildBuffers() {
+        const pixels = this._resolution * this._resolution;
+
         if (this._radianceBuffer) {
             this._radianceBuffer.destroy();
         }
-
         this._radianceBuffer = this._device.createBuffer({
-            size: this._resolution * this._resolution * this.radianceSize,
+            size: pixels * this.radianceSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
         });
+
+        if (this._groundTruthBuffer) {
+            this._groundTruthBuffer.destroy();
+        }
+        this._groundTruthBuffer = this._device.createBuffer({
+            size: pixels * this.groundTruthSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+        });
+
+        if (this._stagingBuffer) {
+            this._stagingBuffer.destroy();
+        }
+        this._stagingBuffer = this._device.createBuffer({
+            size: pixels * this.groundTruthSize,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+
+        this._stagingBufferMapped = false;
+        this.clearGroundTruth();
 
         super._rebuildBuffers();
     }
@@ -236,6 +337,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 { binding: 6, resource: this._transferFunctionSampler },
                 { binding: 7, resource: this._environment.texture.createView() },
                 { binding: 8, resource: this._environment.sampler },
+                { binding: 9, resource: this._groundTruthBuffer }
             ],
         });
 
@@ -250,6 +352,43 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._device.queue.onSubmittedWorkDone().then(() => {
             const frameTime = performance.now() - startTime;
             this._updateFPS(startTime, frameTime);
+        });
+
+        if (!this.store || this._groundTruthBytes >= this.groundTruthMaxBytes || this._stagingBufferMapped) {
+            return;
+        }
+
+        // Copy ground truth data
+        const copyEncoder = this._device.createCommandEncoder();
+        copyEncoder.copyBufferToBuffer(
+            this._groundTruthBuffer, 0,
+            this._stagingBuffer, 0,
+            this._resolution * this._resolution * this.groundTruthSize
+        );
+        this._device.queue.submit([copyEncoder.finish()]);
+
+        this._stagingBufferMapped = true;
+
+        this._stagingBuffer.mapAsync(GPUMapMode.READ).then(() => {
+            const data = new Float32Array(this._stagingBuffer.getMappedRange());
+
+            this._groundTruthZip.file(
+                "indirect_radiance_"
+                + this._groundTruthFrames.toString().padStart(4, "0")
+                + ".bin",
+                data.slice().buffer,
+
+            );
+            this._groundTruthFrames++;
+            this._groundTruthBytes += data.byteLength;
+            this._stagingBuffer.unmap();
+
+            const size = (this._groundTruthBytes / 1024 / 1024).toFixed(1);
+            this.dispatchEvent(new CustomEvent("change", {
+                detail: { name: "dataSize", value: `${size} MB` }
+            }));
+
+            this._stagingBufferMapped = false;
         });
     }
 
@@ -283,6 +422,14 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             this.bounces,
             this.steps,
             ["global", "direct", "indirect"].indexOf(this.mode),
+        ]));
+
+        // Parse hex color to RGB floats
+        const hex = this.background;
+        this._device.queue.writeBuffer(this._uniformBuffer, 112, new Float32Array([
+            parseInt(hex.slice(1, 3), 16) / 255, // red
+            parseInt(hex.slice(3, 5), 16) / 255, // green
+            parseInt(hex.slice(5, 7), 16) / 255, // blue
         ]));
     }
 
@@ -320,5 +467,18 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             Math.ceil(this._resolution / this._workgroup_size[0]),
             Math.ceil(this._resolution / this._workgroup_size[1]),
         ];
+    }
+
+    _getParameters() {
+        return {
+            extinction: this.extinction,
+            anisotropy: this.anisotropy,
+            samples: this.samples,
+            bounces: this.bounces,
+            steps: this.steps,
+            accumulate: this.accumulate,
+            stochastic: this.stochastic,
+            resolution: this._resolution,
+        };
     }
 }

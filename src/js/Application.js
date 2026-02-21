@@ -156,7 +156,7 @@ _handleRendererChange() {
             const value = binds[name].value;
             renderer[name] = value;
             renderer.dispatchEvent(new CustomEvent('change', {
-                detail: { name, value }
+                detail: { name, value, bind: binds[name] }
             }));
         });
     }
