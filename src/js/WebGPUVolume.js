@@ -1,6 +1,11 @@
 import { WebGL } from './WebGL.js';
 import { mat4 } from '../lib/gl-matrix-module.js';
 
+export function centerModelMatrix(matrix) {
+    mat4.translate(matrix, matrix, [-0.5, -0.5, -0.5]);
+    return matrix;
+}
+
 export class WebGPUVolume extends EventTarget {
 
 constructor(device, reader, options = {}) {
@@ -14,7 +19,7 @@ constructor(device, reader, options = {}) {
     this.texture = null;
     this.textureSampler = null;
     this.modality = null;
-    this.modelMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);
+    this.modelMatrix = centerModelMatrix(mat4.create());
 }
 
 destroy() {

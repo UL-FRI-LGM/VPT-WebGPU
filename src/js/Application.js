@@ -14,6 +14,7 @@ import { DialogConstructor } from './dialogs/DialogConstructor.js';
 
 import { RenderingContext } from './RenderingContext.js';
 import { WebGPURenderingContext } from './WebGPURenderingContext.js';
+import { centerModelMatrix } from './WebGPUVolume.js';
 
 import { PerspectiveCamera } from './PerspectiveCamera.js';
 
@@ -74,6 +75,7 @@ constructor() {
         mat4.rotateY(modelMatrix, modelMatrix, rotation[1]);
         mat4.rotateZ(modelMatrix, modelMatrix, rotation[2]);
         mat4.scale(modelMatrix, modelMatrix, s);
+        centerModelMatrix(modelMatrix);
 
         if (this.renderingContext.volume) {
             this.renderingContext.volume.modelMatrix = modelMatrix;

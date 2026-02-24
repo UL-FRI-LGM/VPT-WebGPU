@@ -2,6 +2,7 @@ import { mat4 } from "../../lib/gl-matrix-module.js";
 
 import { WebGPUAbstractComputeRenderer } from "./WebGPUAbstractComputeRenderer.js";
 import { PerspectiveCamera } from "../PerspectiveCamera.js";
+import { CameraPresetAnimator } from "../animators/CameraPresetAnimator.js";
 
 const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
@@ -18,6 +19,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._groundTruthFrames = 0;
         this._groundTruthZip = new JSZip();
         this._stagingBufferMapped = false;
+
+        this._orbit = options.cameraAnimator;
+
+        // Replaces camera and volume matrices with animation ones
+        this._cameraPresetAnimator = new CameraPresetAnimator(this._orbit, this._volume);
 
         this.registerProperties([
             // Volume properties
@@ -58,6 +64,19 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 ]
             },
 
+            {
+                name: "cameraPreset",
+                label: "Camera preset",
+                type: "select",
+                value: "free",
+                options: [
+                    { value: "free", label: "Free orbit" },
+                    { value: "static", label: "Static" },
+                    { value: "oscillate", label: "Oscillate left-right" },
+                ]
+            },
+            { name: "transform", buttonLabel: "Print camera transform", type: "button" },
+
             { name: "store", label: "Store data", type: "checkbox", value: false },
             { name: "dataSize", label: "Data size", type: "text", value: "0 MB" },
             { name: "download", buttonLabel: "Download data", type: "button" },
@@ -78,6 +97,12 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             if (name === "transferFunction") {
                 this.setTransferFunction(this.transferFunction);
                 this._transferFunctionBumps = bind.bumps;
+            }
+
+            if (name === "cameraPreset") {
+                this._cameraPresetAnimator.setPreset(value);
+                this._cameraPresetAnimator.reset();
+                this.reset();
             }
 
             // Reset on parameter changes that affect the path tracing
@@ -107,6 +132,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     break;
                 case "stop":
                     this._playing = false;
+                    this._cameraPresetAnimator.reset();
                     this.clearGroundTruth();
                     this.reset();
                     break;
@@ -136,6 +162,12 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                     });
+                    break;
+                case "transform":
+                    console.log(
+                        this._orbit._yaw, this._orbit._pitch,
+                        Array.from(this._orbit._focus), this._orbit._focusDistance,
+                    );
                     break;
             }
         });
@@ -173,6 +205,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
     render() {
         if (this._playing) {
+            this._cameraPresetAnimator.update();
+
             if (!this.accumulate) {
                 this.reset();
             }
@@ -480,5 +514,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             stochastic: this.stochastic,
             resolution: this._resolution,
         };
+    }
+
+    setVolume(volume) {
+        super.setVolume(volume);
+        this._cameraPresetAnimator.volume = volume;
     }
 }
