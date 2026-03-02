@@ -238,7 +238,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     get groundTruthMaxBytes() {
-        return 1024 * 1024 * 1024;
+        return 4 * 1024 * 1024 * 1024;
     }
 
     _createBuffers() {
