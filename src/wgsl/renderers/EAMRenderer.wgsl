@@ -94,12 +94,14 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     // original
     // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
 
-    // min max
-    let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
-    let volumeSample2: vec2f = textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).ba;
-    let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample2.x), min(volumeSample1.y, volumeSample2.y));
-    let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
-    return transferSample;
+    // // min max
+    // let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
+    // let volumeSample2: vec2f = textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).ba;
+    // let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample2.x), min(volumeSample1.y, volumeSample2.y));
+    // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
+    // return transferSample;
+
+    return textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rgba;
 
     // console.log(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r)
 

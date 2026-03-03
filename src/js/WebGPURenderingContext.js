@@ -135,10 +135,12 @@ async setVolumes(reader, numModalities) {
         this.volume[index].addEventListener('progress', e => {
             this.dispatchEvent(new CustomEvent('progress', { detail: e.detail }));
         });
-        if (index == numModalities.length && numModalities.length < toLoad)
+        if (index == numModalities.length && numModalities.length < toLoad) {
             await this.volume[index].loadBlank();
-        else
+        }
+        else {
             await this.volume[index].loadAll(index);
+        }
         this.volume[index].setFilter(this.filter);
     }
     if (this.renderer) {
@@ -146,9 +148,18 @@ async setVolumes(reader, numModalities) {
     }
 }
 
-concat(data) {
+async setClusterMask(samples, labels, colors, width, height, depth) {
+    // this.volume.push(new WebGPUVolume(this.device, this.reader));
+    await this.volume[this.volume.length-1].loadMask(samples, labels, colors, width, height, depth);
+    console.log(this.volume);
+}
+
+async concat(data) {
+    const view = new DataView(data);
     let tf = null;
     let sample = [];
+    let colors = [];
+    let tempColors = null;
     let tempSample = null;
     let labels = null;
     let header = new Int32Array(4);
@@ -156,63 +167,53 @@ concat(data) {
     let count = 0;
     let packageLen = 0;
   
-    while(count < 3) {
-        header = new DataView(data).getInt32(offset, true);
+    while(offset < data.byteLength) {
+        header = view.getInt32(offset, true);
         count = Number(header);
         offset += 4;
-        header = new DataView(data).getInt32(offset, true);
+        header = view.getInt32(offset, true);
         packageLen = Number(header);
         offset += 4;
-
-        if (count == 1) {
-            tf = new Array(packageLen);
-        }
-        else if (count == 2) {
-            tempSample = new Float32Array(11);
-        }
-        else if (count == 3) {
-            labels = new Int8Array(packageLen);
-        }
         
         let j = 0;
-        let numFloats = 0;
         for (let k = offset; k < (packageLen + offset);) {
-            if (count == 1) {
-                tf[k-offset] = new DataView(data).getUint8(k);
-                k++;
-                j = k;
-            }
-            else if (count == 2) {
-                if (numFloats < 11) 
-                {
-                    tempSample[numFloats] = new DataView(data).getFloat32(k, true);
-                    numFloats++;
-                }
-                else 
-                {
+            switch (count) {
+                case 1:
+                    tf = new Uint8Array(data, k, packageLen);
+                    k += packageLen;
+                    j = k;
+                    break;
+                case 2:
+                    tempSample = new Float32Array(data, k, 11);
                     sample.push(tempSample);
-                    tempSample = new Float32Array(11);
-                    numFloats = 0;
-                }
-                k+=4;
-                j = k;
-            }
-            else if (count == 3) {
-                labels[k-offset] = new DataView(data).getInt8(k, true);
-                k++;
-                j = k;
+                    k += (4 * 11);
+                    j = k;
+                    break;
+                case 3:
+                    labels = new Int8Array(data, k, packageLen);
+                    k += packageLen;
+                    j = k;
+                    break;
+                case 4:
+                    tempColors = new Uint8Array(data, k, 3);
+                    colors.push(tempColors);
+                    k += (1 * 3);
+                    j = k;
+                    break;
+                default:
+                    break;
             }
         }
         offset = j;
     }
-    return [tf, sample, labels];
+    return [tf, sample, labels, colors];
 }
 
 async _handleClusterCompute(e) {
     let fullvolume = [];
     const clusterModality = this.volume[0].metadata.modalities[0];
     const { width, height, depth } = clusterModality.dimensions;
-    const { format, internalFormat, type } = clusterModality;
+    // const { format, internalFormat, type } = clusterModality;
     let pointer = 0;
     for (const { index, position } of clusterModality.placements) {
         const data = await this.reader.readBlock(index);
@@ -237,28 +238,31 @@ async _handleClusterCompute(e) {
     let tfproba = null;
     let sampleproba = null;
     let labelproba = null;
+    let colorproba = null;
     let args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], ...test];
     await fetch('/process', {
         method: 'POST',
         body: args,
         headers: { 'Content-Type': 'application/octet-stream' }
     })
+    await fetch('/output')
     .then(r => r.arrayBuffer())
     .then(buf => {
-        let orderedData = this.concat(buf);
-        tfproba = orderedData[0];
-        sampleproba = orderedData[1];
-        labelproba = orderedData[2];
+        return this.concat(buf)
+    })
+    .then(res => {
+        tfproba = res[0]; // to gre direkt na canvas
+        sampleproba = res[1]; // clusterMask
+        labelproba = res[2]; // clusterMask
+        colorproba = res[3]; // clusterMask
+        this.setClusterMask(sampleproba, labelproba, colorproba, width, height, depth);
     });
     const canv = document.createElement('canvas');
     canv.width = 256;
     canv.height = 256;
     const ctx = canv.getContext('2d');
-    // console.log("tf array length: " + this.tfArray.length);
     this.tfArray = tfproba;
-    // console.log(this.tfArray);
     const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
-    // console.log(imgData);
     ctx.putImageData(imgData, 0, 0);
     return canv.toDataURL();
 }

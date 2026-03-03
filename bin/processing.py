@@ -7,6 +7,8 @@ import struct
 from openTSNE import TSNE
 import numpy as np
 import hdbscan
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 def integralVolume(X, W, H, D):
 
@@ -71,13 +73,15 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
     intensity = (XR + XG + XB + XA) * 0.25
     gradmag   = (gradR + gradG + gradB + gradA) * 0.25
 
-    # coordinates
-    z, y, x = np.meshgrid(
-        np.arange(D, dtype=np.float32),
-        np.arange(H, dtype=np.float32),
-        np.arange(W, dtype=np.float32),
-        indexing="ij"
-    )
+    coords_np = np.stack(
+    np.meshgrid(
+            np.arange(W, dtype=np.float32),
+            np.arange(H, dtype=np.float32),
+            np.arange(D, dtype=np.float32),
+            indexing="xy"
+        ),
+        axis=-1
+    ).reshape(-1, 3)
 
     neighbors = np.zeros((6, D, H, W), dtype=np.float32)
 
@@ -94,17 +98,64 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
     dataset = np.column_stack([
         intensity.ravel(),
         gradmag.ravel(),
-        x.ravel(),
-        y.ravel(),
-        z.ravel(),
+        coords_np,
         neighbors_flat
     ])
 
     return dataset
 
-def write_block(type_id: int, payload: bytes):
-    sys.stdout.buffer.write(struct.pack("<II", type_id, len(payload)))
-    sys.stdout.buffer.write(payload)
+# def stratified_sample(w, h, d, fraction):
+#     total = w * h * d
+#     k = int(total * fraction)
+
+#     n = round(k ** (1/3))  # cube root → grid resolution
+
+#     xs, ys, zs = [], [], []
+
+#     for i in range(n):
+#         for j in range(n):
+#             for k in range(n):
+#                 x = int((i + np.random.rand()) * w / n)
+#                 y = int((j + np.random.rand()) * h / n)
+#                 z = int((k + np.random.rand()) * d / n)
+
+#                 xs.append(x)
+#                 ys.append(y)
+#                 zs.append(z)
+
+#     indices = np.array(xs) + np.array(ys) * w + np.array(zs) * w * h
+#     return indices
+
+def uniform_sampling(W, H, D, p):
+    full_size = W*H*D
+    arr_size = round(full_size * p)
+    
+    x = np.random.randint(0, W, arr_size)
+    y = np.random.randint(0, H, arr_size)
+    z = np.random.randint(0, D, arr_size)
+
+    voxelIndex = (x + y * W + z * W * H)
+    return voxelIndex
+
+def generate_checkerboard_coords(W, H, D, block_size=16):
+    # sanity check
+    x = np.arange(W)
+    y = np.arange(H)
+    z = np.arange(D)
+
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+
+    checker = ((X // block_size + Y // block_size + Z // block_size) % 2)
+
+    coords = np.stack((X[checker == 1],
+                       Y[checker == 1],
+                       Z[checker == 1]), axis=1)
+
+    return coords.astype(np.float32)
+
+def write_block(file_obj, type_id: int, payload: bytes):
+    file_obj.write(struct.pack("<II", type_id, len(payload)))
+    file_obj.write(payload)
 
 def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize):
 
@@ -137,6 +188,8 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     dataset = assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D)
 
+    # raise RuntimeError(dataset[:33])
+
     # bad = 0
     # for data in dataset:
     #     for number in data:
@@ -155,22 +208,18 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # print(str(bad) + " NaN values present in zset")
 
-    k = math.floor(len(zset) * 0.01)
+    # k = math.floor(len(zset) * 0.001)
 
-    indices = np.random.choice(dataset.shape[0], size=k, replace=False)
+    indices = uniform_sampling(W, H, D, 0.01)
     sample = dataset[indices]
-
     input_data = np.array(sample)
-
-    # perp = random.random() * (50.0 - 35.0) + 35.0
-    # exag = random.random() * (50.0 - 1.0) + 1.0
-    # learn = random.random() * (1000.0 - 200.0) + 200.0
-    # n = int(random.random() * (1000 - 200) + 200)
 
     perp = tsnePerp
     exag = tsneExag
     learn = tsneLearn
     n = tsneNum
+
+    # hopefully lhko tole dam usako na svoj core #############
 
     output = TSNE(n_components=2, perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
 
@@ -181,11 +230,13 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     labels = outhdb.fit_predict(output)
 
+    # hopefully lhko tole dam usako na svoj core #############
+
     values, counts = np.unique(labels, return_counts=True)
 
     colors = []
     for i in range(len(values)):
-        colors.append((random.random() * (255 - 1) + 1, random.random() * (255 - 1) + 1, random.random() * (255 - 1) + 1))
+        colors.append((int(random.random() * (255 - 1) + 1), int(random.random() * (255 - 1) + 1), int(random.random() * (255 - 1) + 1)))
 
     minX, maxX = math.inf, -math.inf
     minY, maxY = math.inf, -math.inf
@@ -232,9 +283,6 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
             tf[idx]     = colors[labels[index]][0]
             tf[idx + 1] = colors[labels[index]][1]
             tf[idx + 2] = colors[labels[index]][2]
-            # tf[idx]     = 0
-            # tf[idx + 1] = 0
-            # tf[idx + 2] = 0
             if (tf[idx + 3] <= 240):
                 tf[idx + 3] += 15
             else:
@@ -262,13 +310,19 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     #     f.write(header.encode("ascii"))
     #     f.write(bytes(tf))
 
-    write_block(1, tf.tobytes())
-
     samples_np = np.asarray(sample, dtype=np.float32)
-    write_block(2, samples_np.tobytes())
-
+    # sanity check
+    # samples_np = np.asarray(generate_checkerboard_coords(W, H, D), dtype=np.float32)
     lables_np = np.asarray(labels, dtype=np.int32)
-    write_block(3, lables_np.tobytes())
+    colors_np = np.asarray(colors, dtype=np.uint8)
+
+    with open("./bin/output.bin", "ab") as file:
+        write_block(file, 1, tf.tobytes())
+        write_block(file, 2, samples_np.tobytes())
+        write_block(file, 3, lables_np.tobytes())
+        write_block(file, 4, colors_np.tobytes())
+    
+    
 
 data = []
 with open("./bin/data.raw") as f:

@@ -100,7 +100,8 @@ async readModalities(index) {
     }
 
     this.ready = true;
-    return;
+    console.log([width, height, depth]);
+    return [width, height, depth];
 }
 
 async load() {
@@ -110,7 +111,6 @@ async load() {
 async loadAll(index) {
     await this.readModalities(index);
 }
-
 
 async loadBlank() {
     const data = new Uint8Array([0, 0, 0, 0]);
@@ -139,6 +139,75 @@ async loadBlank() {
     );
     this.ready = true;
     return this.texture
+}
+
+async loadMask(samples, labels, colors, width, height, depth) {
+    // console.log(colors);
+    this.texture = this._device.createTexture({
+        size: [ width, height, depth ],
+        dimension: "3d",
+        format: "rgba8unorm", // tle je format texture HARDCODAN
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+    this.textureSampler = this._device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
+
+    // console.log(samples.length);
+    // console.log(labels.length);
+    // let i = 0;
+    let data = new Uint8ClampedArray((width * height * depth * 4)); // tle je treba sestavt podatke skp predn jih pošlem v texturo
+    for (let index = 0; index < samples.length; index++) {
+        // pejd čez samples array, tm kjer ima sample koordinato, vstavi notr barve v data array
+        const x = samples[index][2];
+        const y = samples[index][3];
+        const z = samples[index][4];
+        const voxelIndex = (x + y * width + z * width * height) * 4;
+        const label = labels[index];
+        
+        if (label !== -1 && label !== undefined && colors[label]) {
+            data[voxelIndex] = colors[label][0];
+            data[voxelIndex+1] = colors[label][1];
+            data[voxelIndex+2] = colors[label][2];
+            data[voxelIndex+3] = 255;
+            // data[voxelIndex] = 255;
+            // data[voxelIndex+1] = 255;
+            // data[voxelIndex+2] = 255;
+        }
+        else {
+            // i++;
+            data[voxelIndex] = 0;
+            data[voxelIndex+1] = 0;
+            data[voxelIndex+2] = 0;
+            data[voxelIndex+3] = 0;
+        }
+        // data[voxelIndex] = 255;
+        // data[voxelIndex+1] = 255;
+        // data[voxelIndex+2] = 255;
+        // data[voxelIndex+3] = 255;
+    }
+    // console.log("kol. vokslov ki naj bi bili sum: "+i)
+
+    this._device.queue.writeTexture(
+        {
+            label: 'Cluster Mask Texture',
+            texture: this.texture,
+            origin: [0, 0, 0]
+        },
+        data,
+        {
+            offset: 0,
+            bytesPerRow: width * 4,
+            rowsPerImage: height
+        },
+        {
+            width: width, 
+            height: height,
+            depthOrArrayLayers: depth
+        }
+    );
+    this.ready = true;
 }
 
 

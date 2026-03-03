@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process';
 // import { http } from 'http';
 import http from 'node:http';
-import fs from 'node:fs';
+import fs, { read } from 'node:fs';
 import path from 'node:path';
 // const http = require('http');
 // const fs = require('fs');
@@ -70,7 +70,7 @@ http.createServer(function(request, response) {
 
     contentType = mimeTypes[extname] || 'application/octet-stream';
 
-    if (request.method === 'GET') {
+    if (request.method === 'GET' && request.url !== '/output') {
         fs.readFile(basedir + filePath, function(error, content) {
             if (error) {
                 if (error.code == 'ENOENT') {
@@ -153,7 +153,32 @@ http.createServer(function(request, response) {
                 response.end('Python failed');
             }
         });
-    } 
+    } else if (request.method === 'GET' && request.url === '/output') {
+        const bin_file = './bin/output.bin';
+        // console.log("Looking for:", require('path').resolve('./output.bin'));
+        fs.readFile(bin_file, function(error, content) {
+            console.log(error);
+            if (error) {
+                if (error.code == 'ENOENT') {
+                    console.log('404: ' + bin_file);
+                    response.writeHead(404);
+                    response.end();
+                } else {
+                    console.log('500: ' + bin_file);
+                    response.writeHead(500);
+                    response.end('Server error: ' + error.code);
+                }
+            } else {
+                response.writeHead(200, {
+                    'Content-Type'   : contentType,
+                    'Content-Length' : content.length,
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET',
+                });
+                response.end(content);
+            }
+        });
+    }
     else {
         response.writeHead(404);
         response.end();
