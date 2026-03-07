@@ -18,8 +18,15 @@ function rotatedModelMatrix(angleX, angleY, angleZ) {
 }
 
 const CAMERA_PRESETS = {
-    static: {
+    front: {
         yaw: (t) => 2.1999999999999957,
+        pitch: (t) => -0.14,
+        focus: (t) => [ -0.06036277860403061, 0.01638137176632881, -0.06459356099367142 ],
+        focusDistance: (t) => 1.0337026689833984,
+        modelMatrix: rotatedModelMatrix(0, 0, 180),
+    },
+    back: {
+        yaw: (t) => 1.1999999999999957,
         pitch: (t) => -0.14,
         focus: (t) => [ -0.06036277860403061, 0.01638137176632881, -0.06459356099367142 ],
         focusDistance: (t) => 1.0337026689833984,

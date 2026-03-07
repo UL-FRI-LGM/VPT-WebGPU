@@ -71,7 +71,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 value: "free",
                 options: [
                     { value: "free", label: "Free orbit" },
-                    { value: "static", label: "Static" },
+                    { value: "front", label: "Front" },
+                    { value: "back", label: "Back" },
                     { value: "oscillate", label: "Oscillate left-right" },
                 ]
             },
