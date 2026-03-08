@@ -73,7 +73,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     { value: "free", label: "Free orbit" },
                     { value: "front", label: "Front" },
                     { value: "back", label: "Back" },
-                    { value: "oscillate", label: "Oscillate left-right" },
+                    { value: "oscillate", label: "Oscillate" },
+                    { value: "turntable", label: "Turntable" },
                 ]
             },
             { name: "transform", buttonLabel: "Print camera transform", type: "button" },

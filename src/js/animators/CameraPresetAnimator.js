@@ -39,6 +39,13 @@ const CAMERA_PRESETS = {
         focusDistance: (t) => 1.0337026689833984,
         modelMatrix: rotatedModelMatrix(0, 0, 180),
     },
+    turntable: {
+        yaw: (t) => 2.1999999999999957 + t / 2000,
+        pitch: (t) => -0.14,
+        focus: (t) => [ -0.06036277860403061, 0.01638137176632881, -0.06459356099367142 ],
+        focusDistance: (t) => 1.1337026689833984,
+        modelMatrix: rotatedModelMatrix(0, 0, 180),
+    }
 };
 
 export class CameraPresetAnimator {
