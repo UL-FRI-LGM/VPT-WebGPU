@@ -160,9 +160,9 @@ async loadMask(samples, labels, colors, width, height, depth) {
     let data = new Uint8ClampedArray((width * height * depth * 4)); // tle je treba sestavt podatke skp predn jih pošlem v texturo
     for (let index = 0; index < samples.length; index++) {
         // pejd čez samples array, tm kjer ima sample koordinato, vstavi notr barve v data array
-        const x = samples[index][2];
-        const y = samples[index][3];
-        const z = samples[index][4];
+        const x = samples[index][2] * width;
+        const y = samples[index][3] * height;
+        const z = samples[index][4] * depth;
         const voxelIndex = (x + y * width + z * width * height) * 4;
         const label = labels[index];
         

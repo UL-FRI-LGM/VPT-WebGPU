@@ -101,7 +101,41 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
     // return transferSample;
 
-    return textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rgba;
+    let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
+    let cluster = textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0);
+    // let dims = textureDimensions(uVolume1);
+    // let voxel = vec3(position * vec3f(dims));
+    // let clusterID = textureSampleLevel(uVolume1, uVolumeSampler1, voxel, 0.0);
+
+    // if (clusterID == 0) {
+    //     discard;
+    // }
+
+    let origAlpha = orig.a;
+
+    let clusterMask = cluster.rgb;
+
+    // let clusterStrength = length(clusterMask);
+
+    // if (clusterStrength < 0.01) {
+    //     discard;
+    // }
+
+    return vec4f(clusterMask, 1.0);
+
+    // let origColor = orig.rgb;
+    // let origAlpha = orig.a;
+
+    // let clusterMask = cluster.a;   // use alpha as mask
+
+    // // Branchless highlight
+    // let highlightColor = vec3f(1.0, 0.0, 0.0);
+
+    // let finalColor = mix(origColor, highlightColor, clusterMask);
+
+    // return vec4f(finalColor, origAlpha);
+
+    // return textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rgba;
 
     // console.log(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r)
 

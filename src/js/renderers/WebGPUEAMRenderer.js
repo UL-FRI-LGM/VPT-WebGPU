@@ -440,11 +440,11 @@ _generateFrame() {
         entries: [
             {
                 binding: 0,
-                resource: this._volume[1].getTexture().createView()
+                resource: this._volume[0].getTexture().createView()
             },
             {
                 binding: 1,
-                resource: this._volume[1].getTextureSampler()
+                resource: this._volume[0].getTextureSampler()
             },
             {
                 binding: 2,

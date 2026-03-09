@@ -7,8 +7,10 @@ import struct
 from openTSNE import TSNE
 import numpy as np
 import hdbscan
+from collections import deque
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+
 
 def integralVolume(X, W, H, D):
 
@@ -75,9 +77,9 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
 
     coords_np = np.stack(
     np.meshgrid(
-            np.arange(W, dtype=np.float32),
-            np.arange(H, dtype=np.float32),
-            np.arange(D, dtype=np.float32),
+            np.arange(W, dtype=np.float32) / W,
+            np.arange(H, dtype=np.float32) / H,
+            np.arange(D, dtype=np.float32) / D,
             indexing="xy"
         ),
         axis=-1
@@ -104,6 +106,7 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
 
     return dataset
 
+
 # def stratified_sample(w, h, d, fraction):
 #     total = w * h * d
 #     k = int(total * fraction)
@@ -126,6 +129,7 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
 #     indices = np.array(xs) + np.array(ys) * w + np.array(zs) * w * h
 #     return indices
 
+
 def uniform_sampling(W, H, D, p):
     full_size = W*H*D
     arr_size = round(full_size * p)
@@ -136,6 +140,49 @@ def uniform_sampling(W, H, D, p):
 
     voxelIndex = (x + y * W + z * W * H)
     return voxelIndex
+
+
+def nearest_cluster_fill(cluster_samples, indices, D, H, W):
+    cluster_volume = np.zeros(D*H*W, dtype=np.int32)
+    cluster_volume[indices] = cluster_samples
+    np_cluster = np.array(cluster_volume, dtype=np.int32)
+    reshape_cluster = np_cluster.reshape(D, H, W)
+
+    z, y, x = reshape_cluster.shape
+    
+    dist = np.full(reshape_cluster.shape, np.inf)
+    result = reshape_cluster.copy()
+
+    q = deque()
+
+    # initialize seeds
+    for k in range(z):
+        for j in range(y):
+            for i in range(x):
+                if reshape_cluster[k,j,i] != 0:
+                    dist[k,j,i] = 0
+                    q.append((k,j,i))
+
+    directions = [
+        (1,0,0),(-1,0,0),
+        (0,1,0),(0,-1,0),
+        (0,0,1),(0,0,-1)
+    ]
+
+    while q:
+        z0,y0,x0 = q.popleft()
+
+        for dz,dy,dx in directions:
+            nz,ny,nx = z0+dz, y0+dy, x0+dx
+
+            if 0<=nz<z and 0<=ny<y and 0<=nx<x:
+                if dist[nz,ny,nx] > dist[z0,y0,x0] + 1:
+                    dist[nz,ny,nx] = dist[z0,y0,x0] + 1
+                    result[nz,ny,nx] = result[z0,y0,x0]
+                    q.append((nz,ny,nx))
+
+    return result
+
 
 def generate_checkerboard_coords(W, H, D, block_size=16):
     # sanity check
@@ -153,9 +200,11 @@ def generate_checkerboard_coords(W, H, D, block_size=16):
 
     return coords.astype(np.float32)
 
+
 def write_block(file_obj, type_id: int, payload: bytes):
     file_obj.write(struct.pack("<II", type_id, len(payload)))
     file_obj.write(payload)
+
 
 def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize):
 
@@ -210,7 +259,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # k = math.floor(len(zset) * 0.001)
 
-    indices = uniform_sampling(W, H, D, 0.01)
+    indices = uniform_sampling(W, H, D, 0.05)
     sample = dataset[indices]
     input_data = np.array(sample)
 
@@ -228,11 +277,13 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
         min_samples=hdbsSampleSize
     )
 
-    labels = outhdb.fit_predict(output)
+    labels = outhdb.fit_predict(input_data)
 
     # hopefully lhko tole dam usako na svoj core #############
 
     values, counts = np.unique(labels, return_counts=True)
+
+    test_labels = nearest_cluster_fill(labels, indices, D, H, W)
 
     colors = []
     for i in range(len(values)):
@@ -313,7 +364,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     samples_np = np.asarray(sample, dtype=np.float32)
     # sanity check
     # samples_np = np.asarray(generate_checkerboard_coords(W, H, D), dtype=np.float32)
-    lables_np = np.asarray(labels, dtype=np.int32)
+    lables_np = np.asarray(test_labels, dtype=np.int32)
     colors_np = np.asarray(colors, dtype=np.uint8)
 
     with open("./bin/output.bin", "ab") as file:
@@ -321,8 +372,6 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
         write_block(file, 2, samples_np.tobytes())
         write_block(file, 3, lables_np.tobytes())
         write_block(file, 4, colors_np.tobytes())
-    
-    
 
 data = []
 with open("./bin/data.raw") as f:
