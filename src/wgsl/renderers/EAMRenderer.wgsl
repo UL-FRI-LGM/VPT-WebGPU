@@ -101,8 +101,11 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
     // return transferSample;
 
+    let dimensions = vec3f(textureDimensions(uVolume1));
+
     let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
-    let cluster = textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0);
+    let xy = textureLoad(uVolume1, vec3i(dimensions*position), 0).rg;
+    let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
     // let dims = textureDimensions(uVolume1);
     // let voxel = vec3(position * vec3f(dims));
     // let clusterID = textureSampleLevel(uVolume1, uVolumeSampler1, voxel, 0.0);
@@ -111,9 +114,9 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     //     discard;
     // }
 
-    let origAlpha = orig.a;
+    // let origAlpha = orig.a;
 
-    let clusterMask = cluster.rgb;
+    // let clusterMask = cluster.rgb;
 
     // let clusterStrength = length(clusterMask);
 
@@ -121,7 +124,7 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     //     discard;
     // }
 
-    return vec4f(clusterMask, 1.0);
+    return vec4f(orig*color);
 
     // let origColor = orig.rgb;
     // let origAlpha = orig.a;

@@ -7,9 +7,11 @@ import struct
 from openTSNE import TSNE
 import numpy as np
 import hdbscan
+import umap
 from collections import deque
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import sklearn.preprocessing as preprocessing
 
 
 def integralVolume(X, W, H, D):
@@ -77,13 +79,23 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
 
     coords_np = np.stack(
     np.meshgrid(
-            np.arange(W, dtype=np.float32) / W,
-            np.arange(H, dtype=np.float32) / H,
-            np.arange(D, dtype=np.float32) / D,
+            np.arange(W, dtype=np.float32),
+            np.arange(H, dtype=np.float32),
+            np.arange(D, dtype=np.float32),
             indexing="xy"
         ),
         axis=-1
     ).reshape(-1, 3)
+
+    # normalized_coords_np = np.stack(
+    # np.meshgrid(
+    #         np.arange(W, dtype=np.float32)/W,
+    #         np.arange(H, dtype=np.float32)/H,
+    #         np.arange(D, dtype=np.float32)/D,
+    #         indexing="xy"
+    #     ),
+    #     axis=-1
+    # ).reshape(-1, 3)
 
     neighbors = np.zeros((6, D, H, W), dtype=np.float32)
 
@@ -101,6 +113,7 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
         intensity.ravel(),
         gradmag.ravel(),
         coords_np,
+        # normalized_coords_np,
         neighbors_flat
     ])
 
@@ -259,31 +272,50 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # k = math.floor(len(zset) * 0.001)
 
-    indices = uniform_sampling(W, H, D, 0.05)
-    sample = dataset[indices]
+    indices = uniform_sampling(W, H, D, 0.02)
+    sample = zset[indices]
     input_data = np.array(sample)
 
-    perp = tsnePerp
-    exag = tsneExag
-    learn = tsneLearn
-    n = tsneNum
+    # perp = tsnePerp
+    # exag = tsneExag
+    # learn = tsneLearn
+    # n = tsneNum
 
     # hopefully lhko tole dam usako na svoj core #############
 
-    output = TSNE(n_components=2, perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
+    # # probam umap
+    # output = TSNE(perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
+
+    # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
+    reducer = umap.UMAP(n_components=2, n_neighbors=30, min_dist=0.0)
+    uv_volume = np.zeros((D, H, W, 2), dtype=np.float32)
+    reducer.fit(input_data)
+    for z in range(D):
+        uv_slice = zset[(z*H*W):((z+1)*H*W)]
+        uv_volume[z] = reducer.transform(uv_slice).reshape(H,W,2)
+
+    uv_volume -= uv_volume.min()
+    uv_volume /= uv_volume.max()
+
+    rgba_volume = np.zeros((D, H, W, 4), dtype=np.uint8)
+    rgba_volume[..., 0] = (uv_volume[..., 0] * 255).astype(np.uint8)  # R = U
+    rgba_volume[..., 1] = (uv_volume[..., 1] * 255).astype(np.uint8)  # G = V
+    # output = reducer.fit_transform(dataset)
+    # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
 
     outhdb = hdbscan.HDBSCAN(
         min_cluster_size=hdbsClusterSize,
         min_samples=hdbsSampleSize
     )
 
-    labels = outhdb.fit_predict(input_data)
+    uv_flat = uv_volume.reshape(-1, 2)
+    labels = outhdb.fit_predict(uv_flat)
 
     # hopefully lhko tole dam usako na svoj core #############
 
     values, counts = np.unique(labels, return_counts=True)
 
-    test_labels = nearest_cluster_fill(labels, indices, D, H, W)
+    # test_labels = nearest_cluster_fill(labels, indices, D, H, W)
 
     colors = []
     for i in range(len(values)):
@@ -292,7 +324,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     minX, maxX = math.inf, -math.inf
     minY, maxY = math.inf, -math.inf
 
-    for x, y in output:
+    for x, y in uv_flat:
         if x < minX: minX = x
         if x > maxX: maxX = x
         if y < minY: minY = y
@@ -301,21 +333,21 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     scale_x = 255.0 / (maxX - minX)
     scale_y = 255.0 / (maxY - minY)
 
-    # scale + round
-    output = [
+    # scale + round, prej je bil output
+    uv_flat = [
         (
             round((x - minX) * scale_x),
             round((y - minY) * scale_y),
         )
-        for x, y in output
+        for x, y in uv_flat
     ]
 
     # flatten to coords array
-    coords = [0] * (len(output) * 2)
+    coords = [0] * (len(uv_flat) * 2)
     l = 0
-    for i in range(len(output)):
+    for i in range(len(uv_flat)):
         for j in range(2):
-            coords[l] = output[i][j]
+            coords[l] = uv_flat[i][j]
             l += 1
 
     # convert to uint8
@@ -324,7 +356,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     # RGBA buffer
     tf = np.zeros(256 * 256 * 4, dtype=np.uint8)
 
-    for index in range(len(output)):
+    for index in range(len(uv_flat)):
         if (labels[index]==-1):
             continue
         else:
@@ -361,17 +393,19 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     #     f.write(header.encode("ascii"))
     #     f.write(bytes(tf))
 
+    # treba še popravit da bom poslu ceu uv_volume notr v VPT da ga mappam u 3d texturo in nucam kot mapping na prenosno funkcijo
     samples_np = np.asarray(sample, dtype=np.float32)
     # sanity check
     # samples_np = np.asarray(generate_checkerboard_coords(W, H, D), dtype=np.float32)
-    lables_np = np.asarray(test_labels, dtype=np.int32)
+    lables_np = np.asarray(labels, dtype=np.int32)
     colors_np = np.asarray(colors, dtype=np.uint8)
 
     with open("./bin/output.bin", "ab") as file:
-        write_block(file, 1, tf.tobytes())
-        write_block(file, 2, samples_np.tobytes())
-        write_block(file, 3, lables_np.tobytes())
-        write_block(file, 4, colors_np.tobytes())
+        write_block(file, 1, rgba_volume.tobytes())
+        write_block(file, 2, tf.tobytes())
+        # write_block(file, 2, uv_volume.tobytes())
+        # write_block(file, 3, lables_np.tobytes())
+        # write_block(file, 4, colors_np.tobytes())
 
 data = []
 with open("./bin/data.raw") as f:

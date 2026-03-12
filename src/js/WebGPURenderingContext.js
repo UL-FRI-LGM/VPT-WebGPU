@@ -157,7 +157,7 @@ async setClusterMask(samples, labels, colors, width, height, depth) {
 async concat(data) {
     const view = new DataView(data);
     let tf = null;
-    let sample = [];
+    let sample = null;
     let colors = [];
     let tempColors = null;
     let tempSample = null;
@@ -179,34 +179,40 @@ async concat(data) {
         for (let k = offset; k < (packageLen + offset);) {
             switch (count) {
                 case 1:
-                    tf = new Uint8Array(data, k, packageLen);
+                    // tf = new Uint8Array(data, k, packageLen);
+                    // k += packageLen;
+                    // j = k;
+                    sample = new Uint8Array(data, k, packageLen);
                     k += packageLen;
                     j = k;
                     break;
                 case 2:
-                    tempSample = new Float32Array(data, k, 11);
-                    sample.push(tempSample);
-                    k += (4 * 11);
-                    j = k;
-                    break;
-                case 3:
-                    labels = new Int8Array(data, k, packageLen);
+                    tf = new Uint8Array(data, k, packageLen);
                     k += packageLen;
                     j = k;
+                    // tempSample = new Float32Array(data, k, 2);
+                    // sample.push(tempSample);
+                    // k += (4 * 2);
+                    // j = k;
                     break;
-                case 4:
-                    tempColors = new Uint8Array(data, k, 3);
-                    colors.push(tempColors);
-                    k += (1 * 3);
-                    j = k;
-                    break;
+                // case 3:
+                //     labels = new Int8Array(data, k, packageLen);
+                //     k += packageLen;
+                //     j = k;
+                //     break;
+                // case 4:
+                //     tempColors = new Uint8Array(data, k, 3);
+                //     colors.push(tempColors);
+                //     k += (1 * 3);
+                //     j = k;
+                //     break;
                 default:
                     break;
             }
         }
         offset = j;
     }
-    return [tf, sample, labels, colors];
+    return [sample, tf];// , labels, colors];
 }
 
 async _handleClusterCompute(e) {
@@ -251,10 +257,10 @@ async _handleClusterCompute(e) {
         return this.concat(buf)
     })
     .then(res => {
-        tfproba = res[0]; // to gre direkt na canvas
-        sampleproba = res[1]; // clusterMask
-        labelproba = res[2]; // clusterMask
-        colorproba = res[3]; // clusterMask
+        sampleproba = res[0]; // to gre direkt na canvas
+        tfproba = res[1]; // clusterMask
+        // labelproba = res[2]; // clusterMask
+        // colorproba = res[3]; // clusterMask
         this.setClusterMask(sampleproba, labelproba, colorproba, width, height, depth);
     });
     const canv = document.createElement('canvas');

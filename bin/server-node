@@ -23,7 +23,7 @@ export function runPython(bytes) {
         }
     });
   return new Promise((resolve, reject) => {
-    const p = spawn('python3', ['./bin/processing.py'], {
+    const p = spawn('python.exe', ['./bin/processing.py'], {
         stdio: ['pipe', 'pipe', 'pipe']
     });
     const chunks = [];
