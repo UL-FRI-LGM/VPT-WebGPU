@@ -104,7 +104,8 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     let dimensions = vec3f(textureDimensions(uVolume1));
 
     let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
-    let xy = textureLoad(uVolume1, vec3i(dimensions*position), 0).rg;
+    let coords = vec3i(position * dimensions);
+    let xy = textureLoad(uVolume1, coords, 0).rg;
     let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
     // let dims = textureDimensions(uVolume1);
     // let voxel = vec3(position * vec3f(dims));

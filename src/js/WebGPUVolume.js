@@ -150,45 +150,45 @@ async loadMask(samples, labels, colors, width, height, depth) {
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
     this.textureSampler = this._device.createSampler({
-        magFilter: "linear",
-        minFilter: "linear"
+        magFilter: "nearest",
+        minFilter: "nearest"
     });
 
     // console.log(samples.length);
     // console.log(labels.length);
     // let i = 0;
-    let data = new Uint8ClampedArray((width * height * depth * 4)); // tle je treba sestavt podatke skp predn jih pošlem v texturo
-    for (let index = 0; index < samples.length; index++) {
-        // // pejd čez samples array, tm kjer ima sample koordinato, vstavi notr barve v data array
-        // const x = samples[index][2];
-        // const y = samples[index][3];
-        // const z = samples[index][4];
-        // const voxelIndex = (x + y * width + z * width * height) * 4;
-        // const label = labels[index];
+    // let data = new Uint8ClampedArray((width * height * depth * 4)); // tle je treba sestavt podatke skp predn jih pošlem v texturo
+    // for (let index = 0; index < samples.length; index++) {
+    //     // // pejd čez samples array, tm kjer ima sample koordinato, vstavi notr barve v data array
+    //     // const x = samples[index][2];
+    //     // const y = samples[index][3];
+    //     // const z = samples[index][4];
+    //     // const voxelIndex = (x + y * width + z * width * height) * 4;
+    //     // const label = labels[index];
         
-        // if (label !== -1 && label !== undefined && colors[label]) {
-        //     data[voxelIndex] = colors[label][0];
-        //     data[voxelIndex+1] = colors[label][1];
-        //     data[voxelIndex+2] = colors[label][2];
-        //     data[voxelIndex+3] = 255;
-        //     // data[voxelIndex] = 255;
-        //     // data[voxelIndex+1] = 255;
-        //     // data[voxelIndex+2] = 255;
-        // }
-        // else {
-        //     // i++;
-        //     data[voxelIndex] = 0;
-        //     data[voxelIndex+1] = 0;
-        //     data[voxelIndex+2] = 0;
-        //     data[voxelIndex+3] = 0;
-        // }
-        // // data[voxelIndex] = 255;
-        // // data[voxelIndex+1] = 255;
-        // // data[voxelIndex+2] = 255;
-        // // data[voxelIndex+3] = 255;
-        data[index*2] = samples[index][0];
-        data[(index*2)+1] = samples[index][1];
-    }
+    //     // if (label !== -1 && label !== undefined && colors[label]) {
+    //     //     data[voxelIndex] = colors[label][0];
+    //     //     data[voxelIndex+1] = colors[label][1];
+    //     //     data[voxelIndex+2] = colors[label][2];
+    //     //     data[voxelIndex+3] = 255;
+    //     //     // data[voxelIndex] = 255;
+    //     //     // data[voxelIndex+1] = 255;
+    //     //     // data[voxelIndex+2] = 255;
+    //     // }
+    //     // else {
+    //     //     // i++;
+    //     //     data[voxelIndex] = 0;
+    //     //     data[voxelIndex+1] = 0;
+    //     //     data[voxelIndex+2] = 0;
+    //     //     data[voxelIndex+3] = 0;
+    //     // }
+    //     // // data[voxelIndex] = 255;
+    //     // // data[voxelIndex+1] = 255;
+    //     // // data[voxelIndex+2] = 255;
+    //     // // data[voxelIndex+3] = 255;
+    //     data[index*2] = samples[index][0];
+    //     data[(index*2)+1] = samples[index][1];
+    // }
     // console.log("kol. vokslov ki naj bi bili sum: "+i)
 
     this._device.queue.writeTexture(
@@ -197,7 +197,7 @@ async loadMask(samples, labels, colors, width, height, depth) {
             texture: this.texture,
             origin: [0, 0, 0]
         },
-        data,
+        samples,
         {
             offset: 0,
             bytesPerRow: width * 4,

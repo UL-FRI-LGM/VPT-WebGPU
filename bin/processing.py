@@ -287,19 +287,23 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     # output = TSNE(perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
 
     # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
-    reducer = umap.UMAP(n_components=2, n_neighbors=30, min_dist=0.0)
+    reducer = umap.UMAP(n_components=2, n_neighbors=70, min_dist=0.0)
     uv_volume = np.zeros((D, H, W, 2), dtype=np.float32)
     reducer.fit(input_data)
     for z in range(D):
         uv_slice = zset[(z*H*W):((z+1)*H*W)]
-        uv_volume[z] = reducer.transform(uv_slice).reshape(H,W,2)
+        uv_volume[z, :, : ,:] = reducer.transform(uv_slice).reshape(H,W,2)
 
-    uv_volume -= uv_volume.min()
-    uv_volume /= uv_volume.max()
+    uv_min = uv_volume.min()
+    uv_max = uv_volume.max()
 
     rgba_volume = np.zeros((D, H, W, 4), dtype=np.uint8)
-    rgba_volume[..., 0] = (uv_volume[..., 0] * 255).astype(np.uint8)  # R = U
-    rgba_volume[..., 1] = (uv_volume[..., 1] * 255).astype(np.uint8)  # G = V
+    rgba_volume[..., 0] = ((uv_volume[..., 0] - uv_min) / (uv_max - uv_min) * 255).astype(np.uint8)  # R = U
+    rgba_volume[..., 1] = ((uv_volume[..., 1] - uv_min) / (uv_max - uv_min) * 255).astype(np.uint8)  # G = V
+
+    # rgba_volume = np.ascontiguousarray(rgba_volume)
+
+    # raise RuntimeError(rgba_volume)
     # output = reducer.fit_transform(dataset)
     # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
 
