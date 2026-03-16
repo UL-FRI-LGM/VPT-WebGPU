@@ -12,6 +12,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import sklearn.preprocessing as preprocessing
+from scipy.ndimage import gaussian_filter
 
 
 def integralVolume(X, W, H, D):
@@ -272,7 +273,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # k = math.floor(len(zset) * 0.001)
 
-    indices = uniform_sampling(W, H, D, 0.02)
+    indices = uniform_sampling(W, H, D, 0.1) # treba napelat v VPT, fajn bi blo da od oka poračunam % volumna za sampling glede na to kaj vržeš notr da bo kulkr tulku konsistentno pri vizualizaciji
     sample = zset[indices]
     input_data = np.array(sample)
 
@@ -287,13 +288,16 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     # output = TSNE(perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
 
     # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
-    reducer = umap.UMAP(n_components=2, n_neighbors=70, min_dist=0.0)
+    reducer = umap.UMAP(n_components=2, n_neighbors=30, min_dist=0.0) # to je treba napelat v VPT input fielde, razn n_components
     uv_volume = np.zeros((D, H, W, 2), dtype=np.float32)
     reducer.fit(input_data)
     for z in range(D):
         uv_slice = zset[(z*H*W):((z+1)*H*W)]
         uv_volume[z, :, : ,:] = reducer.transform(uv_slice).reshape(H,W,2)
 
+    uv_volume[..., 0] = gaussian_filter(uv_volume[..., 0], sigma=1.5)
+    uv_volume[..., 1] = gaussian_filter(uv_volume[..., 1], sigma=1.5)
+    
     uv_min = uv_volume.min()
     uv_max = uv_volume.max()
 
