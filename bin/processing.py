@@ -385,7 +385,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
             }
         })
 
-    with open(".\\bin\\bumps.json", "w") as f:
+    with open("./bin/bumps.json", "w") as f:
         json.dump(bumps, f, indent=2)
 
     # flatten to coords array

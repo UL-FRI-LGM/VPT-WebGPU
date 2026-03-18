@@ -94,7 +94,6 @@ constructor() {
         this.mainDialog.binds.animationProgress.value = e.detail;
     });
     
-    let bumpData = null;
     let imgData = null;
 
     this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
@@ -103,8 +102,12 @@ constructor() {
         this.renderingContext._handleClusterCompute(e)
         .then(img => {imgData = img;})
         .then(e => {
-            bumpData = fetch('/bumps')
-            .then(e => {this._handleRendererChange(imgData, bumpData);})
+            return fetch('/bumps')
+            .then(r => r.json())
+            .then(e => {
+                // console.log(e);
+                this._handleRendererChange(imgData, e);
+            });
         }); // mogoče lhko preko tega naloudam še json
     });
     this._handleRendererChange();
@@ -140,7 +143,7 @@ _handleFileDrop(e) {
     }));
 }
 
-_handleRendererChange(img = null, bumps = null) {
+_handleRendererChange(img = null, bumpsData = null) {
     if (this.rendererDialog) {
         this.rendererDialog.remove();
     }
@@ -158,11 +161,11 @@ _handleRendererChange(img = null, bumps = null) {
             else
                 element.style.backgroundImage = "none";
         }
-        if (element.nodeName == "UI-TRANSFER-FUNCTION" && bumps != null) {
-            console.log(element);
-            element.dispatchEvent(new CustomEvent('computed'), {
-                detail: bumps
-            });
+        if (element.nodeName == "UI-TRANSFER-FUNCTION" && bumpsData != null) {
+            console.log(bumpsData);
+            element.dispatchEvent(new CustomEvent('computed', {
+                detail: bumpsData
+            }));
         }
     });
     

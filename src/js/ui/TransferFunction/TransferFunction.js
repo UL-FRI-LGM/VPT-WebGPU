@@ -87,8 +87,10 @@ constructor() {
     });
 
     this.addEventListener('computed', e => {
-        console.log(e.detail);
-        this.bumps = JSON.parse(e.detail);
+        // console.log(e);
+        // console.log(e.detail);
+        // console.log(typeof e.detail);
+        this.bumps = e.detail;
         this.render();
         this._rebuildHandles();
         this.dispatchEvent(new Event('change'));
