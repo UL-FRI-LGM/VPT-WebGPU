@@ -86,6 +86,14 @@ constructor() {
         });
     });
 
+    this.addEventListener('computed', e => {
+        console.log(e.detail);
+        this.bumps = JSON.parse(e.detail);
+        this.render();
+        this._rebuildHandles();
+        this.dispatchEvent(new Event('change'));
+    });
+
     this.binds.save.addEventListener('click', e => {
         CommonUtils.downloadJSON(this.bumps, 'TransferFunction.json');
     });

@@ -8,6 +8,7 @@ from openTSNE import TSNE
 import numpy as np
 import hdbscan
 import umap
+import json
 from collections import deque
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -349,6 +350,43 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
         )
         for x, y in uv_flat
     ]
+
+    uv_gauss = np.asarray(uv_flat, dtype=np.float32)
+    uv_gauss /= 255
+
+    centroids = {}
+    radii = {}
+    for label in set(labels):
+        if label == -1:  # skip noise
+            continue
+        cluster_points = uv_gauss[labels == label]
+        centroids[label] = cluster_points.mean(axis=0)  # shape (2,) — UV centroid
+        distances = np.linalg.norm(cluster_points - centroids[label], axis=1)
+        radii[label] = distances.mean()
+    
+    # raise RuntimeError(radii)
+
+    bumps = []
+    for label in centroids:
+        bumps.append({
+            "position": {
+                "x": float(centroids[label][0]),
+                "y": 1 - float(centroids[label][1])
+            },
+            "size": {
+                "x": float(radii[label]),
+                "y": float(radii[label])
+            },
+            "color": {
+                "r": colors[label][0]/255,
+                "g": colors[label][1]/255,
+                "b": colors[label][2]/255,
+                "a": 1
+            }
+        })
+
+    with open(".\\bin\\bumps.json", "w") as f:
+        json.dump(bumps, f, indent=2)
 
     # flatten to coords array
     coords = [0] * (len(uv_flat) * 2)

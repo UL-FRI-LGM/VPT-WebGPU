@@ -93,11 +93,19 @@ constructor() {
     this.renderingContext.addEventListener('animationprogress', e => {
         this.mainDialog.binds.animationProgress.value = e.detail;
     });
+    
+    let bumpData = null;
+    let imgData = null;
 
     this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
     this.mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
     this.mainDialog.addEventListener('computeclusters', e => {
-        this.renderingContext._handleClusterCompute(e).then(img => {this._handleRendererChange(img);});
+        this.renderingContext._handleClusterCompute(e)
+        .then(img => {imgData = img;})
+        .then(e => {
+            bumpData = fetch('/bumps')
+            .then(e => {this._handleRendererChange(imgData, bumpData);})
+        }); // mogoče lhko preko tega naloudam še json
     });
     this._handleRendererChange();
     this._handleToneMapperChange();
@@ -132,7 +140,7 @@ _handleFileDrop(e) {
     }));
 }
 
-_handleRendererChange(img = null) {
+_handleRendererChange(img = null, bumps = null) {
     if (this.rendererDialog) {
         this.rendererDialog.remove();
     }
@@ -149,6 +157,12 @@ _handleRendererChange(img = null) {
                 element.style.backgroundImage = 'url('+img+')';
             else
                 element.style.backgroundImage = "none";
+        }
+        if (element.nodeName == "UI-TRANSFER-FUNCTION" && bumps != null) {
+            console.log(element);
+            element.dispatchEvent(new CustomEvent('computed'), {
+                detail: bumps
+            });
         }
     });
     
