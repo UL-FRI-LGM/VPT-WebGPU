@@ -238,7 +238,7 @@ async _handleVolumeLoad(e) {
             this.renderingContext.startRendering();
         }
     }
-    this._handleRendererChange(); // pokličem še enkrat da nalouda skalkuliran histogram v ozadje
+    this._handleRendererChange(this.renderingContext.volume[0].tfAccumulatedGM); // pokličem še enkrat da nalouda skalkuliran histogram v ozadje
 }
 
 _handleEnvmapLoad(e) {

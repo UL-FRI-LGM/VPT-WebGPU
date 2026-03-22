@@ -94,12 +94,17 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     // original
     // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
 
-    // // min max
+    // // basic 4 channel histogram shader
+
     // let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
-    // let volumeSample2: vec2f = textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).ba;
-    // let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample2.x), min(volumeSample1.y, volumeSample2.y));
+    // let volumeSample2: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).ba;
+    // let volumeSample: vec2f = vec2f(volumeSample1 * volumeSample2);
     // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
     // return transferSample;
+
+
+
+    // clustering shader
 
     let dimensions = vec3f(textureDimensions(uVolume1));
 
@@ -107,24 +112,6 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
     let coords = vec3i(position * dimensions);
     let xy = textureLoad(uVolume1, coords, 0).rg;
     let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
-    // let dims = textureDimensions(uVolume1);
-    // let voxel = vec3(position * vec3f(dims));
-    // let clusterID = textureSampleLevel(uVolume1, uVolumeSampler1, voxel, 0.0);
-
-    // if (clusterID == 0) {
-    //     discard;
-    // }
-
-    // let origAlpha = orig.a;
-
-    // let clusterMask = cluster.rgb;
-
-    // let clusterStrength = length(clusterMask);
-
-    // if (clusterStrength < 0.01) {
-    //     discard;
-    // }
-
     return vec4f(orig*color);
 
     // let origColor = orig.rgb;
@@ -143,14 +130,24 @@ fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kan
 
     // console.log(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r)
 
+
+
+    // basic 4 channel histogram shader
+
     // let volumeSample1: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r;
     // let volumeSample2: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g;
     // let volumeSample3: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b;
     // let volumeSample4: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a;
     // let transferSample = vec4f(volumeSample1, volumeSample2, volumeSample3, volumeSample4);
 
-    // let transferSample: vec4f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0);
-    // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
+
+
+   
+
+    // let volumeSample: vec4f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
+    // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
+
+    // return transferSample;
 
     // var volumeSampleR = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r);
     // var transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);

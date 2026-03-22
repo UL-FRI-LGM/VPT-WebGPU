@@ -274,7 +274,7 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # k = math.floor(len(zset) * 0.001)
 
-    indices = uniform_sampling(W, H, D, 0.1) # treba napelat v VPT, fajn bi blo da od oka poračunam % volumna za sampling glede na to kaj vržeš notr da bo kulkr tulku konsistentno pri vizualizaciji
+    indices = uniform_sampling(W, H, D, 0.01) # treba napelat v VPT, fajn bi blo da od oka poračunam % volumna za sampling glede na to kaj vržeš notr da bo kulkr tulku konsistentno pri vizualizaciji
     sample = zset[indices]
     input_data = np.array(sample)
 

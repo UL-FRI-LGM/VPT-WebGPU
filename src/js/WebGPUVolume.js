@@ -16,6 +16,12 @@ constructor(device, reader, options = {}) {
     this.modality = null;
     // this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(0,0,0), vec3.normalize(vec3.create(), vec3.fromValues(1024, 1024, 30))); //hardcoded
     this.modelmat = mat4.fromRotationTranslationScale(mat4.create(), quat.fromEuler(quat.create(), 0,0,0), vec3.fromValues(-0.5,-0.5,-0.5), vec3.fromValues(1,1,1)); //hardcoded
+
+    this.tfArray = [];
+    for (let index = 0; index < 256 * 256; index++) {
+        this.tfArray[index] = 0;
+    }
+    this.tfAccumulatedGM = null;
 }
 
 destroy() {
@@ -68,6 +74,71 @@ async readModalities(index) {
         minFilter: "linear"
     });
 
+    // // za basic histogram
+
+    // let remainingBlocks = modality.placements.length;
+    // for (const { index, position } of modality.placements) {
+    //     const data = await this._reader.readBlock(index);
+    //     const block = this.metadata.blocks[index];
+    //     const { width, height, depth } = block.dimensions;
+    //     const { x, y, z } = position;
+
+    //     const typedData = this._typize(data, type);
+    //     for (let i = 0; i < typedData.length; i+=2) {
+    //         this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
+    //     }
+    //     remainingBlocks--;
+    //     if (remainingBlocks === 0) {
+    //         const m = Math.log(Math.max(...this.tfArray));
+    //         let tf = new Array(this.tfArray.length * 4);
+    //         for (let j = 0; j < this.tfArray.length; j++) {
+    //             const v = 255 - Math.log(this.tfArray[j]) / m * 255;
+    //             tf[4*j] = v;
+    //             tf[4*j+1] = v;
+    //             tf[4*j+2] = v;
+    //             tf[4*j+3] = 255;
+    //         }
+    //         this.tfArray = tf;
+    //         // console.log(this.tfArray);
+    //         const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
+    //         const canv = document.createElement('canvas');
+    //         canv.width = 256;
+    //         canv.height = 256;
+    //         const ctx = canv.getContext('2d');
+    //         ctx.putImageData(imgData, 0, 0);
+    //         this.tfAccumulatedGM = canv.toDataURL();
+    //     }
+
+
+    //      device.queue.writeTexture(
+    //         {
+    //             label: 'Volume Texture',
+    //             texture: this.texture,
+    //             origin: [x, y, z]
+    //         },
+    //         this._typize(data, type),
+    //         {
+    //             offset: 0,
+    //             bytesPerRow: width * 4,
+    //             rowsPerImage: height
+    //         },
+    //         {
+    //             width,
+    //             height,
+    //             depthOrArrayLayers: depth
+    //         }
+    //     );
+
+    //     const progress = (index + 1) / modality.placements.length;
+    //     this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+    // }
+
+    // // za basic histogram
+
+
+
+    // za gručenje
+
     for (const { index, position } of modality.placements) {
         const data = await this._reader.readBlock(index);
         const block = this.metadata.blocks[index];
@@ -98,6 +169,8 @@ async readModalities(index) {
         const progress = (index + 1) / modality.placements.length;
         this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
     }
+
+    // za gručenje
 
     this.ready = true;
     console.log([width, height, depth]);
@@ -153,43 +226,6 @@ async loadMask(samples, labels, colors, width, height, depth) {
         magFilter: "nearest",
         minFilter: "nearest"
     });
-
-    // console.log(samples.length);
-    // console.log(labels.length);
-    // let i = 0;
-    // let data = new Uint8ClampedArray((width * height * depth * 4)); // tle je treba sestavt podatke skp predn jih pošlem v texturo
-    // for (let index = 0; index < samples.length; index++) {
-    //     // // pejd čez samples array, tm kjer ima sample koordinato, vstavi notr barve v data array
-    //     // const x = samples[index][2];
-    //     // const y = samples[index][3];
-    //     // const z = samples[index][4];
-    //     // const voxelIndex = (x + y * width + z * width * height) * 4;
-    //     // const label = labels[index];
-        
-    //     // if (label !== -1 && label !== undefined && colors[label]) {
-    //     //     data[voxelIndex] = colors[label][0];
-    //     //     data[voxelIndex+1] = colors[label][1];
-    //     //     data[voxelIndex+2] = colors[label][2];
-    //     //     data[voxelIndex+3] = 255;
-    //     //     // data[voxelIndex] = 255;
-    //     //     // data[voxelIndex+1] = 255;
-    //     //     // data[voxelIndex+2] = 255;
-    //     // }
-    //     // else {
-    //     //     // i++;
-    //     //     data[voxelIndex] = 0;
-    //     //     data[voxelIndex+1] = 0;
-    //     //     data[voxelIndex+2] = 0;
-    //     //     data[voxelIndex+3] = 0;
-    //     // }
-    //     // // data[voxelIndex] = 255;
-    //     // // data[voxelIndex+1] = 255;
-    //     // // data[voxelIndex+2] = 255;
-    //     // // data[voxelIndex+3] = 255;
-    //     data[index*2] = samples[index][0];
-    //     data[(index*2)+1] = samples[index][1];
-    // }
-    // console.log("kol. vokslov ki naj bi bili sum: "+i)
 
     this._device.queue.writeTexture(
         {

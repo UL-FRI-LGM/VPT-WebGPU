@@ -8,3 +8,6 @@ data/*
 .vscode
 parameter_testing
 bin/output.bin
+Lib
+Scripts
+bin/bumps.json
