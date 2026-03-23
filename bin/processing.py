@@ -221,7 +221,35 @@ def write_block(file_obj, type_id: int, payload: bytes):
     file_obj.write(payload)
 
 
-def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize):
+def main(data, Channels, params):
+    
+    tsnePerp = 0
+    tsneExag = 0
+    tsneLearn = 0
+    tsneNum = 0
+    umapNeighbor = 0
+    umapDistance = 0
+    sampleSize = 0
+    sigmaValue = 0
+    hdbsClusterSize = 0
+    hdbsSampleSize = 0
+
+    if (params[0] == 0):
+        tsnePerp = params[1]
+        tsneExag = params[2]
+        tsneLearn = params[3]
+        tsneNum = params[4]
+        sampleSize = params[5]/100
+        sigmaValue = params[6]
+        hdbsClusterSize = params[7]
+        hdbsSampleSize = params[8]
+    else:
+        umapNeighbor = params[1]
+        umapDistance = params[2]
+        sampleSize = params[3]/100
+        sigmaValue = params[4]
+        hdbsClusterSize = params[5]
+        hdbsSampleSize = params[6]
 
     # print("reading data...")
     XR = data[0::4]
@@ -274,30 +302,29 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
 
     # k = math.floor(len(zset) * 0.001)
 
-    indices = uniform_sampling(W, H, D, 0.01) # treba napelat v VPT, fajn bi blo da od oka poračunam % volumna za sampling glede na to kaj vržeš notr da bo kulkr tulku konsistentno pri vizualizaciji
+    indices = uniform_sampling(W, H, D, sampleSize) # treba napelat v VPT, fajn bi blo da od oka poračunam % volumna za sampling glede na to kaj vržeš notr da bo kulkr tulku konsistentno pri vizualizaciji
     sample = zset[indices]
     input_data = np.array(sample)
 
-    # perp = tsnePerp
-    # exag = tsneExag
-    # learn = tsneLearn
-    # n = tsneNum
-
     # hopefully lhko tole dam usako na svoj core #############
-
+    uv_volume = np.zeros((2, 2, 2, 2), dtype=np.float32)
     # # probam umap
-    # output = TSNE(perplexity=perp, learning_rate=learn, early_exaggeration=exag, n_iter=n).fit(input_data)
+    if (params[0] == 0):
+        uv_tsne = TSNE(perplexity=tsnePerp, learning_rate=tsneLearn, early_exaggeration=tsneExag, n_iter=tsneNum).fit(input_data)
+        uv_volume = np.zeros((D * H * W, 2), dtype=np.float32)
+        uv_volume[indices] = uv_tsne
+        uv_volume = uv_volume.reshape(D, H, W, 2)
+    else:
+        # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
+        reducer = umap.UMAP(n_components=2, n_neighbors=umapNeighbor, min_dist=umapDistance) # to je treba napelat v VPT input fielde, razn n_components
+        uv_volume = np.zeros((D, H, W, 2), dtype=np.float32)
+        reducer.fit(input_data)
+        for z in range(D):
+            uv_slice = zset[(z*H*W):((z+1)*H*W)]
+            uv_volume[z, :, : ,:] = reducer.transform(uv_slice).reshape(H,W,2)
 
-    # probam vrčt ceu volume notr v umap, po slicih, dobim vn uv koordinate, tiste mapiram na voxle in vidm kam me to prpelje
-    reducer = umap.UMAP(n_components=2, n_neighbors=30, min_dist=0.0) # to je treba napelat v VPT input fielde, razn n_components
-    uv_volume = np.zeros((D, H, W, 2), dtype=np.float32)
-    reducer.fit(input_data)
-    for z in range(D):
-        uv_slice = zset[(z*H*W):((z+1)*H*W)]
-        uv_volume[z, :, : ,:] = reducer.transform(uv_slice).reshape(H,W,2)
-
-    uv_volume[..., 0] = gaussian_filter(uv_volume[..., 0], sigma=1.5)
-    uv_volume[..., 1] = gaussian_filter(uv_volume[..., 1], sigma=1.5)
+    uv_volume[..., 0] = gaussian_filter(uv_volume[..., 0], sigma=sigmaValue)
+    uv_volume[..., 1] = gaussian_filter(uv_volume[..., 1], sigma=sigmaValue)
     
     uv_min = uv_volume.min()
     uv_max = uv_volume.max()
@@ -440,38 +467,40 @@ def main(data, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSamp
     #     f.write(bytes(tf))
 
     # treba še popravit da bom poslu ceu uv_volume notr v VPT da ga mappam u 3d texturo in nucam kot mapping na prenosno funkcijo
-    samples_np = np.asarray(sample, dtype=np.float32)
+    # samples_np = np.asarray(sample, dtype=np.float32)
     # sanity check
     # samples_np = np.asarray(generate_checkerboard_coords(W, H, D), dtype=np.float32)
-    lables_np = np.asarray(labels, dtype=np.int32)
-    colors_np = np.asarray(colors, dtype=np.uint8)
+    # lables_np = np.asarray(labels, dtype=np.int32)
+    # colors_np = np.asarray(colors, dtype=np.uint8)
 
     with open("./bin/output.bin", "ab") as file:
         write_block(file, 1, rgba_volume.tobytes())
         write_block(file, 2, tf.tobytes())
-        # write_block(file, 2, uv_volume.tobytes())
-        # write_block(file, 3, lables_np.tobytes())
-        # write_block(file, 4, colors_np.tobytes())
 
 data = []
 with open("./bin/data.raw") as f:
     data = f.read().split(',')
 
 # raise RuntimeError(data[:10])
-
+params = []
+volume = None
 W = int(data[0])
 H = int(data[1])
 D = int(data[2])
 Channels = int(data[3])
 size = int(data[4])
-tsnePerp = int(data[5])
-tsneExag = int(data[6])
-tsneLearn = int(data[7])
-tsneNum = int(data[8])
-hdbsClusterSize = int(data[9])
-hdbsSampleSize = int(data[10])
+if (int(data[5]) == 0):
+    params.append(int(data[5]))
+    for i in range(6, 14):
+        params.append(int(data[i]))
+    volume = np.asarray(data[14:], dtype=np.uint8)
+    volume = volume.reshape((W, H, D, Channels))
+else:
+    params.append(int(data[5]))
+    for i in range(6, 12):
+        params.append(int(data[i]))
+    volume = np.asarray(data[12:], dtype=np.uint8)
+    volume = volume.reshape((W, H, D, Channels))
 
-volume = np.asarray(data[11:], dtype=np.uint8)
-volume = volume.reshape((W, H, D, Channels))
-main (volume, tsnePerp, tsneExag, tsneLearn, tsneNum, hdbsClusterSize, hdbsSampleSize)
+main (volume, Channels, params)
 # main(volume)

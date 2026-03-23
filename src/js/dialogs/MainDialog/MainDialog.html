@@ -31,6 +31,15 @@
                         </select>
                     </ui-field>
                     <ui-field>
+                        <label slot="label">Visualization type</label>
+                        <select bind="visselect">
+                            <option value="tsne">t-distributed Stochastic Neighbor Embedding</option>
+                            <option value="umap">Uniform Manifold Approximation and Projection</option>
+                            <option value="perchan">Per channel histogram</option>
+                            <option value="basic">Multichannel histogram</option>
+                        </select>
+                    </ui-field>
+                    <ui-field>
                         <label slot="label">t-SNE perplexity</label>
                         <input type="number" bind="tsnePerp" value="5"></input>
                     </ui-field>
@@ -47,6 +56,22 @@
                         <input type="number" bind="tsneNum" value="200"></input>
                     </ui-field>
                     <ui-field>
+                        <label slot="label">UMAP number of neighbors</label>
+                        <input type="number" bind="umapNeighbor" value="30"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">UMAP minimum distance</label>
+                        <input type="number" bind="umapDist" value="0.0"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">Sample size (%)</label>
+                        <input type="number" bind="sampleSize" value="1"></input>
+                    </ui-field>
+                    <ui-field>
+                        <label slot="label">Sigma value</label>
+                        <input type="number" bind="sigmaValue" value="1.5"></input>
+                    </ui-field>
+                    <ui-field>
                         <label slot="label">HDBSCAN cluster size</label>
                         <input type="number" bind="hdbsCluster" value="100"></input>
                     </ui-field>
@@ -55,8 +80,8 @@
                         <input type="number" bind="hdbsSample" value="5"></input>
                     </ui-field>
                     <ui-field>
-                        <label slot="label">Compute t-SNE & HDBSCAN</label>
-                        <button bind="compute">Compute clusters</button>
+                        <label slot="label">Compute cluster visualization</label>
+                        <button bind="compute">Start</button>
                     </ui-field>
                     <div bind="rendererSettingsContainer"></div>
                 </ui-accordion>

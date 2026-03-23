@@ -74,86 +74,48 @@ async readModalities(index) {
         minFilter: "linear"
     });
 
-    // // za basic histogram
+    // za basic histogram
 
-    // let remainingBlocks = modality.placements.length;
-    // for (const { index, position } of modality.placements) {
-    //     const data = await this._reader.readBlock(index);
-    //     const block = this.metadata.blocks[index];
-    //     const { width, height, depth } = block.dimensions;
-    //     const { x, y, z } = position;
-
-    //     const typedData = this._typize(data, type);
-    //     for (let i = 0; i < typedData.length; i+=2) {
-    //         this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
-    //     }
-    //     remainingBlocks--;
-    //     if (remainingBlocks === 0) {
-    //         const m = Math.log(Math.max(...this.tfArray));
-    //         let tf = new Array(this.tfArray.length * 4);
-    //         for (let j = 0; j < this.tfArray.length; j++) {
-    //             const v = 255 - Math.log(this.tfArray[j]) / m * 255;
-    //             tf[4*j] = v;
-    //             tf[4*j+1] = v;
-    //             tf[4*j+2] = v;
-    //             tf[4*j+3] = 255;
-    //         }
-    //         this.tfArray = tf;
-    //         // console.log(this.tfArray);
-    //         const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
-    //         const canv = document.createElement('canvas');
-    //         canv.width = 256;
-    //         canv.height = 256;
-    //         const ctx = canv.getContext('2d');
-    //         ctx.putImageData(imgData, 0, 0);
-    //         this.tfAccumulatedGM = canv.toDataURL();
-    //     }
-
-
-    //      device.queue.writeTexture(
-    //         {
-    //             label: 'Volume Texture',
-    //             texture: this.texture,
-    //             origin: [x, y, z]
-    //         },
-    //         this._typize(data, type),
-    //         {
-    //             offset: 0,
-    //             bytesPerRow: width * 4,
-    //             rowsPerImage: height
-    //         },
-    //         {
-    //             width,
-    //             height,
-    //             depthOrArrayLayers: depth
-    //         }
-    //     );
-
-    //     const progress = (index + 1) / modality.placements.length;
-    //     this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
-    // }
-
-    // // za basic histogram
-
-
-
-    // za gručenje
-
+    let remainingBlocks = modality.placements.length;
     for (const { index, position } of modality.placements) {
         const data = await this._reader.readBlock(index);
         const block = this.metadata.blocks[index];
         const { width, height, depth } = block.dimensions;
         const { x, y, z } = position;
-        const typedData = this._typize(data, type);
-        fullvolume.push(typedData);
 
-        device.queue.writeTexture(
+        const typedData = this._typize(data, type);
+        for (let i = 0; i < typedData.length; i+=2) {
+            this.tfArray[typedData[i+1] * 256 + typedData[i]]++;
+        }
+        remainingBlocks--;
+        if (remainingBlocks === 0) {
+            const m = Math.log(Math.max(...this.tfArray));
+            let tf = new Array(this.tfArray.length * 4);
+            for (let j = 0; j < this.tfArray.length; j++) {
+                const v = 255 - Math.log(this.tfArray[j]) / m * 255;
+                tf[4*j] = v;
+                tf[4*j+1] = v;
+                tf[4*j+2] = v;
+                tf[4*j+3] = 255;
+            }
+            this.tfArray = tf;
+            // console.log(this.tfArray);
+            const imgData = new ImageData(Uint8ClampedArray.from(this.tfArray), 256, 256);
+            const canv = document.createElement('canvas');
+            canv.width = 256;
+            canv.height = 256;
+            const ctx = canv.getContext('2d');
+            ctx.putImageData(imgData, 0, 0);
+            this.tfAccumulatedGM = canv.toDataURL();
+        }
+
+         device.queue.writeTexture(
             {
                 label: 'Volume Texture',
                 texture: this.texture,
                 origin: [x, y, z]
             },
-            typedData,
+            this._typize(data, type),
             {
                 offset: 0,
                 bytesPerRow: width * 4,
@@ -169,6 +131,43 @@ async readModalities(index) {
         const progress = (index + 1) / modality.placements.length;
         this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
     }
+
+    // za basic histogram
+
+
+
+    // za gručenje
+
+    // for (const { index, position } of modality.placements) {
+    //     const data = await this._reader.readBlock(index);
+    //     const block = this.metadata.blocks[index];
+    //     const { width, height, depth } = block.dimensions;
+    //     const { x, y, z } = position;
+    //     const typedData = this._typize(data, type);
+    //     fullvolume.push(typedData);
+
+    //     device.queue.writeTexture(
+    //         {
+    //             label: 'Volume Texture',
+    //             texture: this.texture,
+    //             origin: [x, y, z]
+    //         },
+    //         typedData,
+    //         {
+    //             offset: 0,
+    //             bytesPerRow: width * 4,
+    //             rowsPerImage: height
+    //         },
+    //         {
+    //             width,
+    //             height,
+    //             depthOrArrayLayers: depth
+    //         }
+    //     );
+
+    //     const progress = (index + 1) / modality.placements.length;
+    //     this.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+    // }
 
     // za gručenje
 

@@ -23,6 +23,7 @@ constructor() {
     this._handleFileDrop = this._handleFileDrop.bind(this);
     this._handleRendererChange = this._handleRendererChange.bind(this);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
+    this._handleVisualizationChange = this._handleVisualizationChange.bind(this);
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);
     this._handleEnvmapLoad = this._handleEnvmapLoad.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
@@ -97,6 +98,7 @@ constructor() {
     let imgData = null;
 
     this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
+    this.mainDialog.addEventListener('visualizationchange', this._handleVisualizationChange);
     this.mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
     this.mainDialog.addEventListener('computeclusters', e => {
         this.renderingContext._handleClusterCompute(e)
@@ -112,6 +114,7 @@ constructor() {
     });
     this._handleRendererChange();
     this._handleToneMapperChange();
+    this._handleVisualizationChange();
 
     this.mainDialog.addEventListener('recordanimation', this._handleRecordAnimation);
     ////////////////////////////////////////////////////////////////
@@ -206,6 +209,23 @@ _handleToneMapperChange() {
     }
     const container = this.mainDialog.getToneMapperSettingsContainer();
     container.appendChild(this.toneMapperDialog);
+}
+
+_handleVisualizationChange() {
+    this.mainDialog.setVisualizationParameters(this.mainDialog.getSelectedVisualization());
+    console.log(this.renderingContext);
+    console.log(this.renderingContext?.renderer);
+    switch (this.mainDialog.getSelectedVisualization()) {
+        case "tsne":
+            this.renderingContext.renderer.setVisMode(0);
+            break;
+        case "umap":
+            this.renderingContext.renderer.setVisMode(0);
+            break;
+        default:
+            this.renderingContext.renderer.setVisMode(1);
+            break;
+    }
 }
 
 async _handleVolumeLoad(e) {

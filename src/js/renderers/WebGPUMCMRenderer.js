@@ -141,6 +141,12 @@ constructor(device, volume, camera, environment, options = {}) {
         size: 96,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
+
+    this._visModeBuffer = device.createBuffer({
+        size: 4,  // 4 bytes for a single u32
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+
     this._integrateBindGroupLayout = device.createBindGroupLayout({
         entries: [
             {
@@ -300,9 +306,21 @@ constructor(device, volume, camera, environment, options = {}) {
             }
         ]
     });
+
+    this._generateBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
+            }
+        ]
+    });
     
     const integratePipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [this._integrateBindGroupLayout]
+        bindGroupLayouts: [this._integrateBindGroupLayout, this._generateBindGroupLayout]
     });
     this._integratePipeline = device.createRenderPipeline({
         label: "WebGPUMCMRenderer integrate pipeline",
@@ -473,6 +491,7 @@ _integrateFrame() {
         this.bounces,                               // uniforms.bounces
         this.steps                                 // uniforms.steps
     ]));
+    device.queue.writeBuffer(this._visModeBuffer, 0, new Uint32Array([this._visMode]));
 
     const bindGroup = device.createBindGroup({
         layout: this._integratePipeline.getBindGroupLayout(0),
@@ -604,6 +623,17 @@ _integrateFrame() {
         ]
     });
 
+    const bindGroup1 = device.createBindGroup({
+        label: 'generate bind group 1',
+        layout: this._integratePipeline.getBindGroupLayout(1),
+        entries: [
+            {
+                binding: 0,
+                resource: { buffer: this._visModeBuffer }
+            }
+        ]
+    });
+
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
         colorAttachments: [ // TODO: Clean this up
@@ -635,6 +665,7 @@ _integrateFrame() {
     });
     pass.setPipeline(this._integratePipeline);
     pass.setBindGroup(0, bindGroup);
+    pass.setBindGroup(1, bindGroup1);
     pass.draw(3);
     pass.end();
     device.queue.submit([encoder.finish()]);

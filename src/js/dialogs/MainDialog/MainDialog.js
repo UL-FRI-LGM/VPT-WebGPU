@@ -20,11 +20,13 @@ constructor() {
     this._handleRendererChange = this._handleRendererChange.bind(this);
     // console.log(this._handleRendererChange);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
+    this._handleVisualizationChange = this._handleVisualizationChange.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
     this._handleComputeClick = this._handleComputeClick.bind(this);
 
     this.binds.rendererSelect.addEventListener('change', this._handleRendererChange);
     this.binds.toneMapperSelect.addEventListener('change', this._handleToneMapperChange);
+    this.binds.visselect.addEventListener('change', this._handleVisualizationChange);
 
     const about = DOMUtils.instantiate(aboutTemplate);
     this.binds.about.appendChild(about);
@@ -61,17 +63,91 @@ getSelectedToneMapper() {
     return this.binds.toneMapperSelect.value;
 }
 
+getSelectedVisualization() {
+    return this.binds.visselect.value;
+}
+
+setVisualizationParameters(value) {
+    switch (value) {
+        case "tsne":
+            this.binds.tsnePerp.closest('ui-field').style.display = ''
+            this.binds.tsneExag.closest('ui-field').style.display = ''
+            this.binds.tsneLearn.closest('ui-field').style.display = ''
+            this.binds.tsneNum.closest('ui-field').style.display = ''
+            this.binds.umapNeighbor.closest('ui-field').style.display = 'none'
+            this.binds.umapDist.closest('ui-field').style.display = 'none'
+            this.binds.sampleSize.closest('ui-field').style.display = ''
+            this.binds.sigmaValue.closest('ui-field').style.display = ''
+            this.binds.hdbsCluster.closest('ui-field').style.display = ''
+            this.binds.hdbsSample.closest('ui-field').style.display = ''
+            this.binds.compute.closest('ui-field').style.display = ''
+            break;
+        case "umap":
+            this.binds.tsnePerp.closest('ui-field').style.display = 'none'
+            this.binds.tsneExag.closest('ui-field').style.display = 'none'
+            this.binds.tsneLearn.closest('ui-field').style.display = 'none'
+            this.binds.tsneNum.closest('ui-field').style.display = 'none'
+            this.binds.umapNeighbor.closest('ui-field').style.display = ''
+            this.binds.umapDist.closest('ui-field').style.display = ''
+            this.binds.sampleSize.closest('ui-field').style.display = ''
+            this.binds.sigmaValue.closest('ui-field').style.display = ''
+            this.binds.hdbsCluster.closest('ui-field').style.display = ''
+            this.binds.hdbsSample.closest('ui-field').style.display = ''
+            this.binds.compute.closest('ui-field').style.display = ''
+            break;
+        default:
+            this.binds.tsnePerp.closest('ui-field').style.display = 'none'
+            this.binds.tsneExag.closest('ui-field').style.display = 'none'
+            this.binds.tsneLearn.closest('ui-field').style.display = 'none'
+            this.binds.tsneNum.closest('ui-field').style.display = 'none'
+            this.binds.umapNeighbor.closest('ui-field').style.display = 'none'
+            this.binds.umapDist.closest('ui-field').style.display = 'none'
+            this.binds.sampleSize.closest('ui-field').style.display = 'none'
+            this.binds.sigmaValue.closest('ui-field').style.display = 'none'
+            this.binds.hdbsCluster.closest('ui-field').style.display = 'none'
+            this.binds.hdbsSample.closest('ui-field').style.display = 'none'
+            this.binds.compute.closest('ui-field').style.display = 'none'
+            break;
+    }
+}
+
 _handleComputeClick() {
-    this.dispatchEvent(new CustomEvent('computeclusters', {
-        detail: {
-            tsnePerp: Number(this.binds.tsnePerp.value),
-            tsneExag: Number(this.binds.tsneExag.value),
-            tsneLearn: Number(this.binds.tsneLearn.value),
-            tsneNum: Number(this.binds.tsneNum.value),
-            hdbsCluster: Number(this.binds.hdbsCluster.value),
-            hdbsSample: Number(this.binds.hdbsSample.value)
-        }
-    }));
+    switch (this.binds.visselect.value) {
+        case "tsne":
+            this.dispatchEvent(new CustomEvent('computeclusters', {
+                detail: {
+                    visualizer: "tsne",
+                    tsnePerp: Number(this.binds.tsnePerp.value),
+                    tsneExag: Number(this.binds.tsneExag.value),
+                    tsneLearn: Number(this.binds.tsneLearn.value),
+                    tsneNum: Number(this.binds.tsneNum.value),
+                    sampleSize: Number(this.binds.sampleSize.value),
+                    sigmaValue: Number(this.binds.sigmaValue.value),
+                    hdbsCluster: Number(this.binds.hdbsCluster.value),
+                    hdbsSample: Number(this.binds.hdbsSample.value)
+                }
+            }));
+            break;
+        case "umap":
+            this.dispatchEvent(new CustomEvent('computeclusters', {
+                detail: {
+                    visualizer: "umap",
+                    umapNeighbors: Number(this.binds.umapNeighbor.value),
+                    umapDistance: Number(this.binds.umapDist.value),
+                    sampleSize: Number(this.binds.sampleSize.value),
+                    sigmaValue: Number(this.binds.sigmaValue.value),
+                    hdbsCluster: Number(this.binds.hdbsCluster.value),
+                    hdbsSample: Number(this.binds.hdbsSample.value)
+                }
+            }));
+            break;
+        default:
+            break;
+    }
+}
+
+_handleVisualizationChange() {
+    this.dispatchEvent(new Event('visualizationchange'));
 }
 
 _handleRendererChange() {

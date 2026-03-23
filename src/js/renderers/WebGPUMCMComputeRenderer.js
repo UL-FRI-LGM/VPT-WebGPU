@@ -143,6 +143,10 @@ constructor(device, volume, camera, environment, options = {}) {
         usage: GPUBufferUsage.STORAGE
     });
 
+    this._visModeBuffer = device.createBuffer({
+        size: 4,  // 4 bytes for a single u32
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
     
     this._renderUniformBuffer = device.createBuffer({
         size: 256,
@@ -351,8 +355,19 @@ constructor(device, volume, camera, environment, options = {}) {
             },
         ]
     });
+    this._renderBindGroupLayout1 = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "uniform"
+                }
+            }
+        ]
+    });
     this._renderPipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [this._renderBindGroupLayout]
+        bindGroupLayouts: [this._renderBindGroupLayout, this._renderBindGroupLayout1]
     });
     this._renderPipeline = device.createComputePipeline({
         label: "WebGPUMCMComputeRenderer render pipeline",
@@ -469,6 +484,7 @@ _renderFrame() {
         this.bounces,                               // uniforms.bounces
         this.steps                                  // uniforms.steps
     ]));
+    device.queue.writeBuffer(this._visModeBuffer, 0, new Uint32Array([this._visMode]));
 
     const bindGroup = device.createBindGroup({
         layout: this._renderPipeline.getBindGroupLayout(0),
@@ -576,10 +592,22 @@ _renderFrame() {
         ]
     });
 
+    const bindGroup1 = device.createBindGroup({
+        label: 'generate bind group 1',
+        layout: this._renderPipeline.getBindGroupLayout(1),
+        entries: [
+            {
+                binding: 0,
+                resource: { buffer: this._visModeBuffer }
+            }
+        ]
+    });
+
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
     pass.setPipeline(this._renderPipeline);
     pass.setBindGroup(0, bindGroup);
+    pass.setBindGroup(1, bindGroup1);
     // console.log(this._getWorkgroupCount());
     pass.dispatchWorkgroups(...this._getWorkgroupCount());
     pass.end();

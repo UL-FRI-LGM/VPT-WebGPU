@@ -15,6 +15,8 @@ constructor(device, volume, camera, environment, options = {}) {
     this._camera = camera;
     this._environment = environment;
 
+    this._visMode = 0;
+
     this._rebuildBuffers();
 
     this._transferFunction1 = WebGPU.createTextureFromTypedArray(
@@ -147,6 +149,10 @@ _rebuildBuffers() {
 setVolume(volume) {
     this._volume = volume;
     this.reset();
+}
+
+setVisMode(visMode) {
+    this._visMode = visMode;
 }
 
 setTransferFunction1(transferFunction) {

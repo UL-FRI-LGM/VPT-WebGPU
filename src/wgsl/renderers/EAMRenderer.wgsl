@@ -38,6 +38,7 @@ struct Uniforms {
 @group(1) @binding(8) var uTransferFunction8: texture_2d<f32>;
 @group(1) @binding(9) var uTransferFunctionSampler8: sampler;
 @group(1) @binding(10) var<uniform> uniforms1: Uniforms;
+@group(2) @binding(0) var<uniform> visMode: u32;
 
 
 // @group(0) @binding(0) var uVolume0: texture_3d<f32>;
@@ -89,96 +90,25 @@ fn vertex_main(@builtin(vertex_index) vertexIndex : u32) -> VertexOut  {
 
 #include <intersectCube>
 
-fn sampleVolumeColor(position: vec3f) -> vec4f { // lhko probam pol sam usak kanal posebej zašopat u vec4f pa da vidm če bojo ločeni
-
-    // original
-    // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
-
-    // // basic 4 channel histogram shader
-
-    // let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
-    // let volumeSample2: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).ba;
-    // let volumeSample: vec2f = vec2f(volumeSample1 * volumeSample2);
-    // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
-    // return transferSample;
-
-
-
-    // clustering shader
-
+fn sampleVolumeColor(position: vec3f) -> vec4f {
     let dimensions = vec3f(textureDimensions(uVolume1));
-
-    let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
-    let coords = vec3i(position * dimensions);
-    let xy = textureLoad(uVolume1, coords, 0).rg;
-    let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
-    return vec4f(orig*color);
-
-    // let origColor = orig.rgb;
-    // let origAlpha = orig.a;
-
-    // let clusterMask = cluster.a;   // use alpha as mask
-
-    // // Branchless highlight
-    // let highlightColor = vec3f(1.0, 0.0, 0.0);
-
-    // let finalColor = mix(origColor, highlightColor, clusterMask);
-
-    // return vec4f(finalColor, origAlpha);
-
-    // return textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rgba;
-
-    // console.log(textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r)
-
-
-
-    // basic 4 channel histogram shader
-
-    // let volumeSample1: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).r;
-    // let volumeSample2: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).g;
-    // let volumeSample3: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).b;
-    // let volumeSample4: f32 = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).a;
-    // let transferSample = vec4f(volumeSample1, volumeSample2, volumeSample3, volumeSample4);
-
-
-
-   
-
-    // let volumeSample: vec4f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
-    // let transferSample: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
-
-    // return transferSample;
-
-    // var volumeSampleR = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r);
-    // var transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);
-    // var volumeSampleG = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g);
-    // var transferSampleG: vec4f = textureSampleLevel(uTransferFunction2, uTransferFunctionSampler2, volumeSampleG, 0.0);
-    // var volumeSampleB = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b);
-    // var transferSampleB: vec4f = textureSampleLevel(uTransferFunction3, uTransferFunctionSampler3, volumeSampleB, 0.0);
-    // var volumeSampleA = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a);
-    // var transferSampleA: vec4f = textureSampleLevel(uTransferFunction4, uTransferFunctionSampler4, volumeSampleA, 0.0);
-
-    // volumeSampleR = vec2f(textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).r, textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).r);
-    // transferSampleR = textureSampleLevel(uTransferFunction5, uTransferFunctionSampler5, volumeSampleR, 0.0);
-    // volumeSampleG = vec2f(textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).g, textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).g);
-    // transferSampleG = textureSampleLevel(uTransferFunction6, uTransferFunctionSampler6, volumeSampleG, 0.0);
-    // volumeSampleB = vec2f(textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).b, textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).b);
-    // transferSampleB = textureSampleLevel(uTransferFunction7, uTransferFunctionSampler7, volumeSampleB, 0.0);
-    // volumeSampleA = vec2f(textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).a, textureSampleLevel(uVolume1, uVolumeSampler1, position, 0.0).a);
-    // transferSampleA = textureSampleLevel(uTransferFunction8, uTransferFunctionSampler8, volumeSampleA, 0.0);
-
-    // let sumAlpha: f32 = transferSampleR.a + transferSampleG.a + transferSampleB.a + transferSampleA.a;
-    // let sumColor = vec3f(transferSampleR.rgb * transferSampleR.a + transferSampleG.rgb * transferSampleG.a + transferSampleB.rgb * transferSampleB.a + transferSampleA.rgb * transferSampleA.a) / sumAlpha;
-
-    // return vec4f(sumColor, sumAlpha/4.0);
-    // return vec4f(
-    //     transferSampleR.r,
-    //     transferSampleG.g,
-    //     transferSampleB.b,
-    //     transferSampleA.a
-    // );
-
-    // return transferSample;
+    var transferSample = vec4f(0, 0, 0, 0);
+    if (visMode == 0u) {
+        // clustering shader
+        let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
+        let coords = vec3i(position * dimensions);
+        let xy = textureLoad(uVolume1, coords, 0).rg;
+        let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
+        transferSample = vec4f(orig*color);
+    }
+    else {
+        // basic 4 channel histogram shader
+        let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
+        let volumeSample2: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).ba;
+        let volumeSample: vec2f = vec2f(volumeSample1 * volumeSample2);
+        transferSample = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
+    }
+    return transferSample;
 }
 
 // fn sampleVolumeColor(position: vec3f) -> mat4x4f { // lhko probam pol sam usak kanal posebej zašopat u vec4f pa da vidm če bojo ločeni

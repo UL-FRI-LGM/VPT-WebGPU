@@ -229,23 +229,52 @@ async _handleClusterCompute(e) {
         }
     }
     let test = new Uint8ClampedArray(fullvolume);
-    let header = new Uint32Array(11);
-    header[0] = width;
-    header[1] = height;
-    header[2] = depth;
-    header[3] = (test.length/(width*height*depth));
-    header[4] = test.length;
-    header[5] = e.detail.tsnePerp;
-    header[6] = e.detail.tsneExag;
-    header[7] = e.detail.tsneLearn;
-    header[8] = e.detail.tsneNum;
-    header[9] = e.detail.hdbsCluster;
-    header[10] = e.detail.hdbsSample;
+    let header = new Uint32Array(1);
+    let args = [];
+    switch (e.detail.visualizer) {
+        case "tsne":
+            header = new Uint32Array(14);
+            header[0] = width;
+            header[1] = height;
+            header[2] = depth;
+            header[3] = (test.length/(width*height*depth));
+            header[4] = test.length;
+            header[5] = 0;
+            header[6] = e.detail.tsnePerp;
+            header[7] = e.detail.tsneExag;
+            header[8] = e.detail.tsneLearn;
+            header[9] = e.detail.tsneNum;
+            header[10] = e.detail.sampleSize;
+            header[11] = e.detail.sigmaValue;
+            header[12] = e.detail.hdbsCluster;
+            header[13] = e.detail.hdbsSample;
+            args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10],  header[11], header[12], header[13], ...test];
+            break;
+        case "umap":
+            header = new Uint32Array(12);
+            header[0] = width;
+            header[1] = height;
+            header[2] = depth;
+            header[3] = (test.length/(width*height*depth));
+            header[4] = test.length;
+            header[5] = 1;
+            header[6] = e.detail.umapNeighbors;
+            header[7] = e.detail.umapDistance;
+            header[8] = e.detail.sampleSize;
+            header[9] = e.detail.sigmaValue;
+            header[10] = e.detail.hdbsCluster;
+            header[11] = e.detail.hdbsSample;
+            args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], header[11], ...test];
+            break;    
+        default:
+            break;
+    }
+    
     let tfproba = null;
     let sampleproba = null;
     let labelproba = null;
     let colorproba = null;
-    let args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], ...test];
+    
     await fetch('/process', {
         method: 'POST',
         body: args,
