@@ -84,36 +84,39 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
     // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
 
     // return transferSample;
-    // let volumeSampleR = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r);
-    // let transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);
-    // let volumeSampleG = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g);
-    // let transferSampleG: vec4f = textureSampleLevel(uTransferFunction2, uTransferFunctionSampler2, volumeSampleG, 0.0);
-    // let volumeSampleB = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b);
-    // let transferSampleB: vec4f = textureSampleLevel(uTransferFunction3, uTransferFunctionSampler3, volumeSampleB, 0.0);
-    // let volumeSampleA = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a);
-    // let transferSampleA: vec4f = textureSampleLevel(uTransferFunction4, uTransferFunctionSampler4, volumeSampleA, 0.0);
-
-    // let sumAlpha: f32 = transferSampleR.a + transferSampleG.a + transferSampleB.a + transferSampleA.a;
-    // let sumColor = vec3f(transferSampleR.rgb * transferSampleR.a + transferSampleG.rgb * transferSampleG.a + transferSampleB.rgb * transferSampleB.a + transferSampleA.rgb * transferSampleA.a) / sumAlpha;
-
-    // return vec4f(sumColor, sumAlpha/4.0);
+    
 
     let dimensions = vec3f(textureDimensions(uVolume1));
     var transferSample = vec4f(0, 0, 0, 0);
     if (visMode == 0u) {
-        // clustering shader
+        // cluster sampling
         let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
         let coords = vec3i(position * dimensions);
         let xy = textureLoad(uVolume1, coords, 0).rg;
         let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
         transferSample = vec4f(orig*color);
     }
-    else {
-        // basic 4 channel histogram shader
+    else if (visMode == 1u) {
+         // basic 4 channel sampling
         let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
         let volumeSample2: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).ba;
         let volumeSample: vec2f = vec2f(volumeSample1 * volumeSample2);
         transferSample = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSample, 0.0);
+    }
+    else {
+        // per channel color sampling (hopefuly poenostavim z 1D TF, trenutno more bit tako ker je TD v dveh dimenzijah)
+        let volumeSampleR = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r);
+        let transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);
+        let volumeSampleG = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g);
+        let transferSampleG: vec4f = textureSampleLevel(uTransferFunction2, uTransferFunctionSampler2, volumeSampleG, 0.0);
+        let volumeSampleB = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b);
+        let transferSampleB: vec4f = textureSampleLevel(uTransferFunction3, uTransferFunctionSampler3, volumeSampleB, 0.0);
+        let volumeSampleA = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a);
+        let transferSampleA: vec4f = textureSampleLevel(uTransferFunction4, uTransferFunctionSampler4, volumeSampleA, 0.0);
+
+        let sumAlpha: f32 = transferSampleR.a + transferSampleG.a + transferSampleB.a + transferSampleA.a;
+        let sumColor = vec3f(transferSampleR.rgb * transferSampleR.a + transferSampleG.rgb * transferSampleG.a + transferSampleB.rgb * transferSampleB.a + transferSampleA.rgb * transferSampleA.a) / sumAlpha;
+        transferSample = vec4f(sumColor, sumAlpha/4.0);
     }
     return transferSample;
 }

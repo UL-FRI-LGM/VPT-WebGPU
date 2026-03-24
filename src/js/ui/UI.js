@@ -10,4 +10,5 @@ export * from './Slider/Slider.js';
 export * from './StatusBar/StatusBar.js';
 export * from './Tabs/Tabs.js';
 export * from './TransferFunction/TransferFunction.js';
+export * from './TransferFunction/TransferFunction1D.js';
 export * from './VectorSpinner/VectorSpinner.js';

@@ -111,6 +111,29 @@ setVisualizationParameters(value) {
     }
 }
 
+setVisibleTFs(value) {
+    const headers = this.binds.rendererSettingsContainer.querySelectorAll('div[slot="header"]');
+    console.log(headers);
+    switch (value) {
+        case 2:
+            console.log("show all")
+            for (let index = 0; index < headers.length; index++) {
+                if (index == 0 || index == headers.length-1)
+                    continue;
+                headers[index].classList.toggle('invisible', false);
+            }
+            break;
+        default:
+            console.log("hide")
+            for (let index = 0; index < headers.length; index++) {
+                if (index == 0 || index == headers.length-1)
+                    continue;
+                headers[index].classList.toggle('invisible', true);
+            }
+            break;
+    }
+}
+
 _handleComputeClick() {
     switch (this.binds.visselect.value) {
         case "tsne":

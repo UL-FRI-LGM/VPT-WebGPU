@@ -14,7 +14,8 @@ static construct(properties) {
     var i = 0;
     for (const property of properties) {
         const widget = this.constructProperty(property);
-        if (property.type === 'transfer-function') {
+        console.log(widget);
+        if (property.type === 'transfer-function' || property.type === 'transfer-function-1d') {
             i+=1;
             const tfHeader = document.createElement('div');
             tfHeader.slot = 'header';
@@ -23,7 +24,7 @@ static construct(properties) {
 
             const tfInstance = DOMUtils.instantiate(widget);
             panel.appendChild(tfInstance);
-
+            console.log(panel);
         } else {
             const fieldHTML = `<ui-field><label slot="label">${property.label}</label>${widget}</ui-field>`;
             const instance = DOMUtils.instantiate(fieldHTML);
@@ -46,6 +47,7 @@ static constructProperty(property) {
         case 'checkbox': return `<ui-checkbox bind="${property.name}" ${property.value ? "checked" : ""}></ui-checkbox>`;
         case 'color-chooser': return `<ui-color-chooser bind="${property.name}" value="${property.value}"></ui-color-chooser>`;
         case 'transfer-function': return `<ui-transfer-function bind="${property.name}"></ui-transfer-function>`;
+        case 'transfer-function-1d': return `<ui-transfer-function-1d bind="${property.name}"></ui-transfer-function-1d>`;
         default: return `<div></div>`;
     }
 }

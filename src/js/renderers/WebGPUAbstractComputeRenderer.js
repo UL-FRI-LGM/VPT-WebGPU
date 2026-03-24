@@ -67,6 +67,30 @@ constructor(device, volume, camera, environment, options = {}) {
         new Uint8Array([0, 0, 0, 0]),
         "rgba8unorm-srgb"
     );
+    this._transferFunction1D_1 = WebGPU.createTextureFromTypedArray(
+        device,
+        [1, 1],
+        new Uint8Array([0, 0, 0, 0]),
+        "rgba8unorm-srgb"
+    );
+    this._transferFunction1D_2 = WebGPU.createTextureFromTypedArray(
+        device,
+        [1, 1],
+        new Uint8Array([0, 0, 0, 0]),
+        "rgba8unorm-srgb"
+    );
+    this._transferFunction1D_3 = WebGPU.createTextureFromTypedArray(
+        device,
+        [1, 1],
+        new Uint8Array([0, 0, 0, 0]),
+        "rgba8unorm-srgb"
+    );
+    this._transferFunction1D_4 = WebGPU.createTextureFromTypedArray(
+        device,
+        [1, 1],
+        new Uint8Array([0, 0, 0, 0]),
+        "rgba8unorm-srgb"
+    );
     this._transferFunctionSampler1 = device.createSampler({
         magFilter: "linear",
         minFilter: "linear"
@@ -99,6 +123,22 @@ constructor(device, volume, camera, environment, options = {}) {
         magFilter: "linear",
         minFilter: "linear"
     });
+    this._transferFunctionSampler1D_1 = device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
+    this._transferFunctionSampler1D_2 = device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
+    this._transferFunctionSampler1D_3 = device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
+    this._transferFunctionSampler1D_4 = device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear"
+    });
 }
 
 destroy() {
@@ -112,6 +152,10 @@ destroy() {
     this._transferFunction6.destroy();
     this._transferFunction7.destroy();
     this._transferFunction8.destroy();
+    this._transferFunction1D_1.destroy();
+    this._transferFunction1D_2.destroy();
+    this._transferFunction1D_3.destroy();
+    this._transferFunction1D_4.destroy();
 }
 
 render() {
@@ -202,6 +246,38 @@ setTransferFunction8(transferFunction) {
         this._transferFunction8.destroy();
     }
     this._transferFunction8 = WebGPU.createTextureFromImageBitmapOrCanvas(device, transferFunction, "rgba8unorm-srgb");
+}
+setTransferFunction1D_1(transferFunction) {
+    const device = this._device;
+    // TODO: Consider not re-creating the texture if it's the same size
+    if (this._transferFunction1D_1) {
+        this._transferFunction1D_1.destroy();
+    }
+    this._transferFunction1D_1 = WebGPU.createTextureFromImageBitmapOrCanvas(device, transferFunction, "rgba8unorm-srgb");
+}
+setTransferFunction1D_2(transferFunction) {
+    const device = this._device;
+    // TODO: Consider not re-creating the texture if it's the same size
+    if (this._transferFunction1D_2) {
+        this._transferFunction1D_2.destroy();
+    }
+    this._transferFunction1D_2 = WebGPU.createTextureFromImageBitmapOrCanvas(device, transferFunction, "rgba8unorm-srgb");
+}
+setTransferFunction1D_3(transferFunction) {
+    const device = this._device;
+    // TODO: Consider not re-creating the texture if it's the same size
+    if (this._transferFunction1D_3) {
+        this._transferFunction1D_3.destroy();
+    }
+    this._transferFunction1D_3 = WebGPU.createTextureFromImageBitmapOrCanvas(device, transferFunction, "rgba8unorm-srgb");
+}
+setTransferFunction1D_4(transferFunction) {
+    const device = this._device;
+    // TODO: Consider not re-creating the texture if it's the same size
+    if (this._transferFunction1D_4) {
+        this._transferFunction1D_4.destroy();
+    }
+    this._transferFunction1D_4 = WebGPU.createTextureFromImageBitmapOrCanvas(device, transferFunction, "rgba8unorm-srgb");
 }
 
 setResolution(resolution) {

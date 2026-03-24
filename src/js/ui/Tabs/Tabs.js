@@ -54,6 +54,7 @@ _updateStyle() {
         tabs[i].classList.toggle('selected', i === this.index);
         tabs[i].classList.toggle('invisible', i !== this.index);
         headers[i].classList.toggle('selected', i === this.index);
+        // headers[i].classList.toggle('invisible', i !== this.index); // to dela, skrije vse tabe ki niso izbrani, morde lhko nrdim da so usi tabi razn prvega skriti če nisi v per channel vizualizaciji
     }
 }
 

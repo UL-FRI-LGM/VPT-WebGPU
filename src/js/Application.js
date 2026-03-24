@@ -218,12 +218,23 @@ _handleVisualizationChange() {
     switch (this.mainDialog.getSelectedVisualization()) {
         case "tsne":
             this.renderingContext.renderer.setVisMode(0);
+            this.mainDialog.setVisibleTFs(0);
             break;
         case "umap":
             this.renderingContext.renderer.setVisMode(0);
+            this.mainDialog.setVisibleTFs(0);
+            break;
+        case "basic":
+            this.renderingContext.renderer.setVisMode(1);
+            this.mainDialog.setVisibleTFs(1);
+            break;
+        case "perchan":
+            this.renderingContext.renderer.setVisMode(2);
+            this.mainDialog.setVisibleTFs(2);
             break;
         default:
-            this.renderingContext.renderer.setVisMode(1);
+            this.renderingContext.renderer.setVisMode(2);
+            this.mainDialog.setVisibleTFs(2);
             break;
     }
 }

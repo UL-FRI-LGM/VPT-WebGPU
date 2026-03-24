@@ -51,24 +51,24 @@ constructor(device, volume, camera, environment, options = {}) {
             type: 'transfer-function',
             value: new Uint8Array([0,0,0,0]),
         },
-        // {
-        //     name: 'transferFunction2',
-        //     label: 'Transfer function',
-        //     type: 'transfer-function',
-        //     value: new Uint8Array([0,0,0,0]),
-        // },
-        // {
-        //     name: 'transferFunction3',
-        //     label: 'Transfer function',
-        //     type: 'transfer-function',
-        //     value: new Uint8Array([0,0,0,0]),
-        // },
-        // {
-        //     name: 'transferFunction4',
-        //     label: 'Transfer function',
-        //     type: 'transfer-function',
-        //     value: new Uint8Array([0,0,0,0]),
-        // },
+        {
+            name: 'transferFunction2',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction3',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction4',
+            label: 'Transfer function',
+            type: 'transfer-function',
+            value: new Uint8Array([0,0,0,0]),
+        },
         // {
         //     name: 'transferFunction5',
         //     label: 'Transfer function',
@@ -101,15 +101,15 @@ constructor(device, volume, camera, environment, options = {}) {
         if (name === 'transferFunction1') {
             this.setTransferFunction1(this.transferFunction1);
         }
-        // if (name === 'transferFunction2') {
-        //     this.setTransferFunction2(this.transferFunction2);
-        // }
-        // if (name === 'transferFunction3') {
-        //     this.setTransferFunction3(this.transferFunction3);
-        // }
-        // if (name === 'transferFunction4') {
-        //     this.setTransferFunction4(this.transferFunction4);
-        // }
+        if (name === 'transferFunction2') {
+            this.setTransferFunction2(this.transferFunction2);
+        }
+        if (name === 'transferFunction3') {
+            this.setTransferFunction3(this.transferFunction3);
+        }
+        if (name === 'transferFunction4') {
+            this.setTransferFunction4(this.transferFunction4);
+        }
         // if (name === 'transferFunction5') {
         //     this.setTransferFunction5(this.transferFunction1);
         // }
