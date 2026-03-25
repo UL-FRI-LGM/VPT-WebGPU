@@ -14,17 +14,20 @@ static construct(properties) {
     var i = 0;
     for (const property of properties) {
         const widget = this.constructProperty(property);
-        console.log(widget);
+        // console.log(widget);
         if (property.type === 'transfer-function' || property.type === 'transfer-function-1d') {
             i+=1;
             const tfHeader = document.createElement('div');
             tfHeader.slot = 'header';
-            tfHeader.textContent = i;
+            if (property.type === 'transfer-function-1d')
+                tfHeader.textContent = i-1;
+            else
+                tfHeader.textContent = i;
             panel.appendChild(tfHeader);
 
             const tfInstance = DOMUtils.instantiate(widget);
             panel.appendChild(tfInstance);
-            console.log(panel);
+            // console.log(panel);
         } else {
             const fieldHTML = `<ui-field><label slot="label">${property.label}</label>${widget}</ui-field>`;
             const instance = DOMUtils.instantiate(fieldHTML);

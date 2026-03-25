@@ -43,21 +43,27 @@ constructor(device, volume, camera, environment, options = {}) {
             value: new Uint8Array([0,0,0,0]),
         },
         {
-            name: 'transferFunction2',
+            name: 'transferFunction1D_1',
             label: 'Transfer function',
-            type: 'transfer-function',
+            type: 'transfer-function-1d',
             value: new Uint8Array([0,0,0,0]),
         },
         {
-            name: 'transferFunction3',
+            name: 'transferFunction1D_2',
             label: 'Transfer function',
-            type: 'transfer-function',
+            type: 'transfer-function-1d',
             value: new Uint8Array([0,0,0,0]),
         },
         {
-            name: 'transferFunction4',
+            name: 'transferFunction1D_3',
             label: 'Transfer function',
-            type: 'transfer-function',
+            type: 'transfer-function-1d',
+            value: new Uint8Array([0,0,0,0]),
+        },
+        {
+            name: 'transferFunction1D_4',
+            label: 'Transfer function',
+            type: 'transfer-function-1d',
             value: new Uint8Array([0,0,0,0]),
         },
         // {
@@ -92,14 +98,17 @@ constructor(device, volume, camera, environment, options = {}) {
         if (name === 'transferFunction1') {
             this.setTransferFunction1(this.transferFunction1);
         }
-        if (name === 'transferFunction2') {
-            this.setTransferFunction2(this.transferFunction2);
+        if (name === 'transferFunction1D_1') {
+            this.setTransferFunction1D_1(this.transferFunction1D_1);
         }
-        if (name === 'transferFunction3') {
-            this.setTransferFunction3(this.transferFunction3);
+        if (name === 'transferFunction1D_2') {
+            this.setTransferFunction1D_2(this.transferFunction1D_2);
         }
-        if (name === 'transferFunction4') {
-            this.setTransferFunction4(this.transferFunction4);
+        if (name === 'transferFunction1D_3') {
+            this.setTransferFunction1D_3(this.transferFunction1D_3);
+        }
+        if (name === 'transferFunction1D_4') {
+            this.setTransferFunction1D_4(this.transferFunction1D_4);
         }
         // if (name === 'transferFunction5') {
         //     this.setTransferFunction5(this.transferFunction5);
@@ -119,6 +128,10 @@ constructor(device, volume, camera, environment, options = {}) {
             'slices',
             'random',
             'transferFunction1',
+            'transferFunction1D_1',
+            'transferFunction1D_2',
+            'transferFunction1D_3',
+            'transferFunction1D_4',
         ].includes(name)) {
             this.reset();
         }
@@ -165,102 +178,11 @@ constructor(device, volume, camera, environment, options = {}) {
                 visibility: GPUShaderStage.FRAGMENT,
                 texture: {
                     sampleType: "float",
-                    viewDimension: "2d",
-                    mulitsampled: false
-                }
-            },
-            {
-                binding: 3,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {
-                    type: "filtering"
-                }
-            },
-            {
-                binding: 4,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {
-                    sampleType: "float",
-                    viewDimension: "2d",
-                    mulitsampled: false
-                }
-            },
-            {
-                binding: 5,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {
-                    type: "filtering"
-                }
-            },
-            {
-                binding: 6,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {
-                    sampleType: "float",
-                    viewDimension: "2d",
-                    mulitsampled: false
-                }
-            },
-            {
-                binding: 7,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {
-                    type: "filtering"
-                }
-            },
-            {
-                binding: 8,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {
-                    sampleType: "float",
-                    viewDimension: "2d",
-                    mulitsampled: false
-                }
-            },
-            {
-                binding: 9,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {
-                    type: "filtering"
-                }
-            },
-            {
-                binding: 10,
-                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                buffer: {
-                    type: "uniform"
-                }
-            },
-        ]
-    });
-    this._generateBindGroupLayout1 = device.createBindGroupLayout({
-        entries: [
-            {
-                binding: 0,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {
-                    sampleType: "float",
                     viewDimension: "3d",
                     mulitsampled: false
                 }
             },
             {
-                binding: 1,
-                visibility: GPUShaderStage.FRAGMENT,
-                sampler: {
-                    type: "filtering"
-                }
-            },
-            {
-                binding: 2,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: {
-                    sampleType: "float",
-                    viewDimension: "2d",
-                    mulitsampled: false
-                }
-            },
-            {
                 binding: 3,
                 visibility: GPUShaderStage.FRAGMENT,
                 sampler: {
@@ -317,6 +239,45 @@ constructor(device, volume, camera, environment, options = {}) {
             },
             {
                 binding: 10,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 11,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 12,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: "float",
+                    viewDimension: "2d",
+                    mulitsampled: false
+                }
+            },
+            {
+                binding: 13,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: {
+                    type: "filtering"
+                }
+            },
+            {
+                binding: 14,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
+            },
+            {
+                binding: 15,
                 visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                 buffer: {
                     type: "uniform"
@@ -324,7 +285,98 @@ constructor(device, volume, camera, environment, options = {}) {
             },
         ]
     });
-    this._generateBindGroupLayout2 = device.createBindGroupLayout({
+    // this._generateBindGroupLayout1 = device.createBindGroupLayout({
+    //     entries: [
+    //         {
+    //             binding: 0,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             texture: {
+    //                 sampleType: "float",
+    //                 viewDimension: "3d",
+    //                 mulitsampled: false
+    //             }
+    //         },
+    //         {
+    //             binding: 1,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             sampler: {
+    //                 type: "filtering"
+    //             }
+    //         },
+    //         {
+    //             binding: 2,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             texture: {
+    //                 sampleType: "float",
+    //                 viewDimension: "2d",
+    //                 mulitsampled: false
+    //             }
+    //         },
+    //         {
+    //             binding: 3,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             sampler: {
+    //                 type: "filtering"
+    //             }
+    //         },
+    //         {
+    //             binding: 4,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             texture: {
+    //                 sampleType: "float",
+    //                 viewDimension: "2d",
+    //                 mulitsampled: false
+    //             }
+    //         },
+    //         {
+    //             binding: 5,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             sampler: {
+    //                 type: "filtering"
+    //             }
+    //         },
+    //         {
+    //             binding: 6,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             texture: {
+    //                 sampleType: "float",
+    //                 viewDimension: "2d",
+    //                 mulitsampled: false
+    //             }
+    //         },
+    //         {
+    //             binding: 7,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             sampler: {
+    //                 type: "filtering"
+    //             }
+    //         },
+    //         {
+    //             binding: 8,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             texture: {
+    //                 sampleType: "float",
+    //                 viewDimension: "2d",
+    //                 mulitsampled: false
+    //             }
+    //         },
+    //         {
+    //             binding: 9,
+    //             visibility: GPUShaderStage.FRAGMENT,
+    //             sampler: {
+    //                 type: "filtering"
+    //             }
+    //         },
+    //         {
+    //             binding: 10,
+    //             visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+    //             buffer: {
+    //                 type: "uniform"
+    //             }
+    //         },
+    //     ]
+    // });
+    this._generateBindGroupLayout1 = device.createBindGroupLayout({
         entries: [
             {
                 binding: 0,
@@ -337,7 +389,7 @@ constructor(device, volume, camera, environment, options = {}) {
     });
     // pipeline layout
     this._generatePipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [this._generateBindGroupLayout0, this._generateBindGroupLayout1, this._generateBindGroupLayout2]
+        bindGroupLayouts: [this._generateBindGroupLayout0, this._generateBindGroupLayout1]
     });
 
     this._generatePipeline = device.createRenderPipeline({
@@ -465,97 +517,110 @@ _generateFrame() {
             },
             {
                 binding: 2,
-                resource: this._transferFunction1.createView()
+                resource: this._volume[1].getTexture().createView()
             },
             {
                 binding: 3,
-                resource: this._transferFunctionSampler1
+                resource: this._volume[1].getTextureSampler()
             },
             {
                 binding: 4,
-                resource: this._transferFunction2.createView()
+                resource: this._transferFunction1.createView()
             },
             {
                 binding: 5,
-                resource: this._transferFunctionSampler2
+                resource: this._transferFunctionSampler1
             },
             {
                 binding: 6,
-                resource: this._transferFunction3.createView()
+                resource: this._transferFunction1D_1.createView()
             },
             {
                 binding: 7,
-                resource: this._transferFunctionSampler3
+                resource: this._transferFunctionSampler1D_1
             },
             {
                 binding: 8,
-                resource: this._transferFunction4.createView()
+                resource: this._transferFunction1D_2.createView()
             },
             {
                 binding: 9,
-                resource: this._transferFunctionSampler4
+                resource: this._transferFunctionSampler1D_2
             },
             {
                 binding: 10,
+                resource: this._transferFunction1D_3.createView()
+            },
+            {
+                binding: 11,
+                resource: this._transferFunctionSampler1D_3
+            },
+            {
+                binding: 12,
+                resource: this._transferFunction1D_4.createView()
+            },
+            {
+                binding: 13,
+                resource: this._transferFunctionSampler1D_4
+            },
+            {
+                binding: 14,
+                resource: { buffer: this._generateUniformBuffer }
+            },
+            {
+                binding: 15,
                 resource: { buffer: this._generateUniformBuffer }
             }
         ]
     });
+
+    // const bindGroup2 = device.createBindGroup({
+    //     label: 'generate bind group 2',
+    //     layout: this._generatePipeline.getBindGroupLayout(1),
+    //     entries: [
+            
+    //         {
+    //             binding: 2,
+    //             resource: this._transferFunction5.createView()
+    //         },
+    //         {
+    //             binding: 3,
+    //             resource: this._transferFunctionSampler5
+    //         },
+    //         {
+    //             binding: 4,
+    //             resource: this._transferFunction6.createView()
+    //         },
+    //         {
+    //             binding: 5,
+    //             resource: this._transferFunctionSampler6
+    //         },
+    //         {
+    //             binding: 6,
+    //             resource: this._transferFunction7.createView()
+    //         },
+    //         {
+    //             binding: 7,
+    //             resource: this._transferFunctionSampler7
+    //         },
+    //         {
+    //             binding: 8,
+    //             resource: this._transferFunction8.createView()
+    //         },
+    //         {
+    //             binding: 9,
+    //             resource: this._transferFunctionSampler8
+    //         },
+    //         {
+    //             binding: 10,
+    //             resource: { buffer: this._generateUniformBuffer }
+    //         }
+    //     ]
+    // });
 
     const bindGroup2 = device.createBindGroup({
         label: 'generate bind group 2',
         layout: this._generatePipeline.getBindGroupLayout(1),
-        entries: [
-            {
-                binding: 0,
-                resource: this._volume[1].getTexture().createView()
-            },
-            {
-                binding: 1,
-                resource: this._volume[1].getTextureSampler()
-            },
-            {
-                binding: 2,
-                resource: this._transferFunction5.createView()
-            },
-            {
-                binding: 3,
-                resource: this._transferFunctionSampler5
-            },
-            {
-                binding: 4,
-                resource: this._transferFunction6.createView()
-            },
-            {
-                binding: 5,
-                resource: this._transferFunctionSampler6
-            },
-            {
-                binding: 6,
-                resource: this._transferFunction7.createView()
-            },
-            {
-                binding: 7,
-                resource: this._transferFunctionSampler7
-            },
-            {
-                binding: 8,
-                resource: this._transferFunction8.createView()
-            },
-            {
-                binding: 9,
-                resource: this._transferFunctionSampler8
-            },
-            {
-                binding: 10,
-                resource: { buffer: this._generateUniformBuffer }
-            }
-        ]
-    });
-
-    const bindGroup3 = device.createBindGroup({
-        label: 'generate bind group 3',
-        layout: this._generatePipeline.getBindGroupLayout(2),
         entries: [
             {
                 binding: 0,
@@ -579,7 +644,7 @@ _generateFrame() {
     // pass.setBindGroup(0, bindGroup);
     pass.setBindGroup(0, bindGroup1);
     pass.setBindGroup(1, bindGroup2);
-    pass.setBindGroup(2, bindGroup3);
+    // pass.setBindGroup(2, bindGroup3);
     pass.draw(3);
     pass.end();
     device.queue.submit([encoder.finish()]);

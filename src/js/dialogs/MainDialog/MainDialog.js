@@ -113,10 +113,10 @@ setVisualizationParameters(value) {
 
 setVisibleTFs(value) {
     const headers = this.binds.rendererSettingsContainer.querySelectorAll('div[slot="header"]');
-    console.log(headers);
+    // console.log(headers);
     switch (value) {
         case 2:
-            console.log("show all")
+            // console.log("show all")
             for (let index = 0; index < headers.length; index++) {
                 if (index == 0 || index == headers.length-1)
                     continue;
@@ -124,7 +124,7 @@ setVisibleTFs(value) {
             }
             break;
         default:
-            console.log("hide")
+            // console.log("hide")
             for (let index = 0; index < headers.length; index++) {
                 if (index == 0 || index == headers.length-1)
                     continue;

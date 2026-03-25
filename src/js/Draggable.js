@@ -11,6 +11,8 @@ constructor(element, handle) {
     this._startY = 0;
 
     this._handle.addEventListener('pointerdown', this._handlePointerDown);
+    // console.log(this._element);
+    // console.log(this._handle);
 }
 
 _handlePointerDown(e) {
@@ -45,6 +47,9 @@ _handlePointerUp(e) {
 }
 
 _handlePointerMove(e) {
+    // console.log(e);
+    // console.log(this._element);
+    // console.log(this._handle);
     const dx = e.pageX - this._startX;
     const dy = e.pageY - this._startY;
     const x = this._element.offsetLeft;
@@ -52,7 +57,12 @@ _handlePointerMove(e) {
     const pw = this._element.parentNode.offsetWidth;
     const ph = this._element.parentNode.offsetHeight;
     const newx = Math.min(Math.max(x + dx, 0), pw);
-    const newy = Math.min(Math.max(y + dy, 0), ph);
+    let newy = 0;
+    if (this._handle.classList.contains('bump-handle1D'))
+        newy = ph / 2;// Math.min(Math.max(y + dy, 0), ph);
+    else
+        newy = Math.min(Math.max(y + dy, 0), ph);
+    // console.log(newy);
     this._element.style.left = newx + 'px';
     this._element.style.top = newy + 'px';
     this._startX = e.pageX;

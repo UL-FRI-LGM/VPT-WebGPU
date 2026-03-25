@@ -1,44 +1,42 @@
+@import '../../../css/UI.css';
+
+:host {
+    display: block;
+}
+
+.widget {
+    overflow: hidden;
+    line-height: 0;
+    display: inline-block;
+    position: relative;
+}
+
 canvas {
-    width: 100%;
-    height: 32px;
-    display: block;
-    cursor: crosshair;
+    background: url('../../../images/alpha-checkerboard.png') repeat;
 }
 
-canvas.display {
-    width: 100%;
-    height: 48px;
-    display: block;
-    cursor: crosshair;
-}
-
-.widget {
-    position: relative;
-    background: #222;  /* dark background so gradient is visible */
-    border: 1px solid #444;
-}
-
-.stops {
-    position: relative;
-    height: 12px;
-}
-
-.stop {
+.bump {
+    width: 0;
+    height: 0;
     position: absolute;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 2px solid white;
-    transform: translateX(-50%);
-    cursor: pointer;
-    top: 0;
+}
+
+.bump .bump-handle1D {
     box-sizing: border-box;
+    border: 2px solid black;
+    border-radius: 5px;
+    position: absolute;
+    width: 10px;
+    height: 48px;
+    top: -24px;
+    left: -5px;
 }
 
-.stop.selected {
-    border-color: yellow;
-}
-
-.widget {
-    position: relative;
+.bump.selected .bump-handle1D {
+    border: 4px solid orange;
+    border-radius: 7px;
+    width: 14px;
+    height: 48px;
+    top: -24px;
+    left: -7px;
 }

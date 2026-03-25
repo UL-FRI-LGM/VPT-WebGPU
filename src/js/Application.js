@@ -157,7 +157,7 @@ _handleRendererChange(img = null, bumpsData = null) {
     
     const object = DialogConstructor.construct(renderer.properties);
     object.childNodes.forEach(element => {
-        if (element.nodeName == "UI-TRANSFER-FUNCTION") {
+        if (element.nodeName == "UI-TRANSFER-FUNCTION" || element.nodeName == "UI-TRANSFER-FUNCTION-1D") {
             element.style.backgroundRepeat = "no-repeat";
             if (img != null)
                 element.style.backgroundImage = 'url('+img+')';
@@ -185,6 +185,7 @@ _handleRendererChange(img = null, bumpsData = null) {
     }
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
+    this._handleVisualizationChange();
 }
 
 _handleToneMapperChange() {
@@ -213,8 +214,8 @@ _handleToneMapperChange() {
 
 _handleVisualizationChange() {
     this.mainDialog.setVisualizationParameters(this.mainDialog.getSelectedVisualization());
-    console.log(this.renderingContext);
-    console.log(this.renderingContext?.renderer);
+    // console.log(this.renderingContext);
+    // console.log(this.renderingContext?.renderer);
     switch (this.mainDialog.getSelectedVisualization()) {
         case "tsne":
             this.renderingContext.renderer.setVisMode(0);
@@ -241,6 +242,7 @@ _handleVisualizationChange() {
 
 async _handleVolumeLoad(e) {
     const options = e.detail;
+    console.log(options);
     if (options.type === 'file') {
         const readerClass = ReaderFactory(options.filetype);
         if (readerClass) {
@@ -254,6 +256,7 @@ async _handleVolumeLoad(e) {
             });
             this.renderingContext.stopRendering();
             var numModalities = await reader.readMetadata();
+            console.log(numModalities.modalities[0].files);
             // console.log(numModalities.modalities);
             await this.renderingContext.setVolumes(reader, numModalities.modalities);
             this.renderingContext.startRendering();
