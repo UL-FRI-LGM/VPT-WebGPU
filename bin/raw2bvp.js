@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'module';
 // import tsnejs from '.././src/lib/tsne.js';
-import TSNE from '.././src/lib/tsne.min.js';
 const require = createRequire(import.meta.url);
 const fs = require('fs');
 const path = require('path');
@@ -917,8 +916,9 @@ for (const modality of manifest.modalities) {
         for (let index = 0; index < modality.files.length; index++) {
             inputData.push(fs.readFileSync(modality.files[index])); // prebere datoteko -> readFileSync
         }
+        let zeroBuffer = Buffer.alloc(inputData[0].length, 0);
         console.log("inputData:", inputData);
-        volumeData = computeOutputData(inputData[0], modality, inputData[1], inputData[2], inputData[3]); // združi podatke
+        volumeData = computeOutputData(inputData[0], modality, inputData[1] ?? zeroBuffer, inputData[2] ?? zeroBuffer, inputData[3] ?? zeroBuffer); // združi podatke
     }
     else {
         const inputData = fs.readFileSync(modality.files[0]); // prebere datoteko -> readFileSync
@@ -928,74 +928,74 @@ for (const modality of manifest.modalities) {
 
     // const volumeData = computeOutputData(inputData, modality); // združi podatke
 
-    console.log("volumeData:", volumeData);
+    // console.log("volumeData:", volumeData);
 
-    let ds = []
-    console.log("prepping data...")
-    for (let index = 0; index < volumeData.length; index+=4) {
-        // rchan[index] = prepdata[r];
-        // gchan[index] = prepdata[g];
-        // bchan[index] = prepdata[b];
-        // achan[index] = prepdata[a];
-        // ds[index] = [prepdata[r],[prepdata[g],[prepdata[b],[prepdata[a]]]]];
-        console.log("pixel nr.: "+(index+1));
-        ds.push([volumeData[index], volumeData[index+1], volumeData[index+2], volumeData[index+3]]); // Rabm premislt kku delat z Voxli, ker tuki delam tsne na slojih textur kr je pomojm narobe
-    } // preglej si coresete za tSNE
+    // let ds = []
+    // console.log("prepping data...")
+    // for (let index = 0; index < volumeData.length; index+=4) {
+    //     // rchan[index] = prepdata[r];
+    //     // gchan[index] = prepdata[g];
+    //     // bchan[index] = prepdata[b];
+    //     // achan[index] = prepdata[a];
+    //     // ds[index] = [prepdata[r],[prepdata[g],[prepdata[b],[prepdata[a]]]]];
+    //     console.log("pixel nr.: "+(index+1));
+    //     ds.push([volumeData[index], volumeData[index+1], volumeData[index+2], volumeData[index+3]]); // Rabm premislt kku delat z Voxli, ker tuki delam tsne na slojih textur kr je pomojm narobe
+    // } // preglej si coresete za tSNE
 
-    // let dataset = [new Uint8ClampedArray(rchan), new Uint8ClampedArray(gchan), new Uint8ClampedArray(bchan), new Uint8ClampedArray(achan)];
-    // let dists = [[1.0, 0.1, 0.2], [0.1, 1.0, 0.3], [0.2, 0.1, 1.0]];
-    // console.log(proba);
-    console.log(ds);
-    // // console.log("this.tfArray length: "+this.tfArray.length);
-    console.log("ds dolzina: " + ds.length + ", base array dolzina: " + volumeData.length);
+    // // let dataset = [new Uint8ClampedArray(rchan), new Uint8ClampedArray(gchan), new Uint8ClampedArray(bchan), new Uint8ClampedArray(achan)];
+    // // let dists = [[1.0, 0.1, 0.2], [0.1, 1.0, 0.3], [0.2, 0.1, 1.0]];
+    // // console.log(proba);
+    // console.log(ds);
+    // // // console.log("this.tfArray length: "+this.tfArray.length);
+    // console.log("ds dolzina: " + ds.length + ", base array dolzina: " + volumeData.length);
 
-    // let tsneTesting = new tsnejs.tSNE({
+    // // let tsneTesting = new tsnejs.tSNE({
+    // //     dim: 2,
+    // //     perplexity: 4.0,
+    // //     epsilon: 10.0,
+    // // });
+    // // console.log("initializing data...");
+    // // tsneTesting.initDataRaw(ds);
+    // // console.log("data initialized");
+    // // for (let k = 0; k < 500; k++) {
+    // //     console.log("step: "+(k+1));
+    // //     tsneTesting.step();
+    // // }
+
+    // // // console.log(error);
+
+    // // let output = tsneTesting.getSolution();
+
+    // // console.log("TSNE output:");
+    // // console.log(output);
+    // let model = new TSNE({
     //     dim: 2,
     //     perplexity: 4.0,
-    //     epsilon: 10.0,
+    //     earlyExaggeration: 4.0,
+    //     learningRate: 100.0,
+    //     nIter: 500,
+    //     metric: 'euclidian'
     // });
     // console.log("initializing data...");
-    // tsneTesting.initDataRaw(ds);
+    // model.init({
+    //     data: ds,
+    //     type: 'dense'
+    // });
+    // // tsneTesting.initDataRaw(ds);
     // console.log("data initialized");
-    // for (let k = 0; k < 500; k++) {
-    //     console.log("step: "+(k+1));
-    //     tsneTesting.step();
-    // }
-
+    // // for (let k = 0; k < 500; k++) {
+    // //     console.log("step: "+(k+1));
+    // //     tsneTesting.step();
+    // // }
+    // let [error, iter] = model.run();
     // // console.log(error);
 
-    // let output = tsneTesting.getSolution();
+    // // let output = tsneTesting.getSolution();
+
+    // let output = model.getOutput();
 
     // console.log("TSNE output:");
     // console.log(output);
-    let model = new TSNE({
-        dim: 2,
-        perplexity: 4.0,
-        earlyExaggeration: 4.0,
-        learningRate: 100.0,
-        nIter: 500,
-        metric: 'euclidian'
-    });
-    console.log("initializing data...");
-    model.init({
-        data: ds,
-        type: 'dense'
-    });
-    // tsneTesting.initDataRaw(ds);
-    console.log("data initialized");
-    // for (let k = 0; k < 500; k++) {
-    //     console.log("step: "+(k+1));
-    //     tsneTesting.step();
-    // }
-    let [error, iter] = model.run();
-    // console.log(error);
-
-    // let output = tsneTesting.getSolution();
-
-    let output = model.getOutput();
-
-    console.log("TSNE output:");
-    console.log(output);
 
 
     const { format, blockSize, dimensions } = modality;

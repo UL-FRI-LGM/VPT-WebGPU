@@ -158,10 +158,10 @@ async concat(data) {
     const view = new DataView(data);
     let tf = null;
     let sample = null;
-    let colors = [];
-    let tempColors = null;
-    let tempSample = null;
-    let labels = null;
+    // let colors = [];
+    // let tempColors = null;
+    // let tempSample = null;
+    // let labels = null;
     let header = new Int32Array(4);
     let offset = 0;
     let count = 0;
@@ -179,9 +179,6 @@ async concat(data) {
         for (let k = offset; k < (packageLen + offset);) {
             switch (count) {
                 case 1:
-                    // tf = new Uint8Array(data, k, packageLen);
-                    // k += packageLen;
-                    // j = k;
                     sample = new Uint8Array(data, k, packageLen);
                     k += packageLen;
                     j = k;
@@ -190,29 +187,14 @@ async concat(data) {
                     tf = new Uint8Array(data, k, packageLen);
                     k += packageLen;
                     j = k;
-                    // tempSample = new Float32Array(data, k, 2);
-                    // sample.push(tempSample);
-                    // k += (4 * 2);
-                    // j = k;
                     break;
-                // case 3:
-                //     labels = new Int8Array(data, k, packageLen);
-                //     k += packageLen;
-                //     j = k;
-                //     break;
-                // case 4:
-                //     tempColors = new Uint8Array(data, k, 3);
-                //     colors.push(tempColors);
-                //     k += (1 * 3);
-                //     j = k;
-                //     break;
                 default:
                     break;
             }
         }
         offset = j;
     }
-    return [sample, tf];// , labels, colors];
+    return [sample, tf];
 }
 
 async _handleClusterCompute(e) {
@@ -248,6 +230,7 @@ async _handleClusterCompute(e) {
             header[11] = e.detail.sigmaValue;
             header[12] = e.detail.hdbsCluster;
             header[13] = e.detail.hdbsSample;
+            console.log(width + " " + height + " " + depth + " " + test.length/(width*height*depth) + " " + test.length);
             args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10],  header[11], header[12], header[13], ...test];
             break;
         case "umap":

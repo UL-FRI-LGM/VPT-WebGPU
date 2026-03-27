@@ -76,8 +76,21 @@ def assemble_dataset(XR, XG, XB, XA, gradR, gradG, gradB, gradA, W, H, D):
     gradB = np.asarray(gradB, dtype=np.float32).reshape(D, H, W)
     gradA = np.asarray(gradA, dtype=np.float32).reshape(D, H, W)
 
-    intensity = (XR + XG + XB + XA) * 0.25
-    gradmag   = (gradR + gradG + gradB + gradA) * 0.25
+    activeChan = [c for c in [XR, XG, XB, XA] if c.max() > 0]
+    activeGrad = [g for c, g in zip([XR, XG, XB, XA], [gradR, gradG, gradB, gradA]) if c.max() > 0]
+
+    intensity = np.zeros((D, H, W), dtype=np.float32)
+    gradmag = np.zeros((D, H, W), dtype=np.float32)
+
+    for c, g in zip(activeChan, activeGrad):
+        intensity += c
+        gradmag += g
+
+    intensity /= len(activeChan)
+    gradmag /= len(activeChan)
+
+    # intensity = (XR + XG + XB + XA) * 0.25
+    # gradmag   = (gradR + gradG + gradB + gradA) * 0.25
 
     coords_np = np.stack(
     np.meshgrid(
@@ -252,28 +265,41 @@ def main(data, Channels, params):
         hdbsSampleSize = params[6]
 
     # print("reading data...")
-    XR = data[0::4]
-    XG = data[1::4]
-    XB = data[2::4]
-    XA = data[3::4]
+    flat = data.ravel()
+    XR = flat[0::4]
+    XG = flat[1::4]
+    XB = flat[2::4]
+    XA = flat[3::4]
+    # XR = data[0::4]
+    # XG = data[1::4]
+    # XB = data[2::4]
+    # XA = data[3::4]
     # print("data read!")
+
+    # raise RuntimeError(str(len(XR)) + " " + str(len(XG)) + " " + str(len(XB)) + " " + str(len(XA)))
     
     W, H, D, Channels = volume.shape
 
     dataset = []
 
     # print("calculating integral volumes...")
-    IR = integralVolume(XR, W, H, D)
-    IG = integralVolume(XG, W, H, D)
-    IB = integralVolume(XB, W, H, D)
-    IA = integralVolume(XA, W, H, D)
+    # IR = integralVolume(XR, W, H, D)
+    # IG = integralVolume(XG, W, H, D)
+    # IB = integralVolume(XB, W, H, D)
+    # IA = integralVolume(XA, W, H, D)
+
+    # raise RuntimeError(str(len(IR)) + " " + str(len(IG)) + " " + str(len(IB)) + " " + str(len(IA)))
 
 
     # print("calculating gradient magnitudes...")
-    gradR = gradientMagnitude3D(IR, W, H, D)
-    gradG = gradientMagnitude3D(IG, W, H, D)
-    gradB = gradientMagnitude3D(IB, W, H, D)
-    gradA = gradientMagnitude3D(IA, W, H, D)
+    gradR = gradientMagnitude3D(XR, W, H, D)
+    gradG = gradientMagnitude3D(XG, W, H, D)
+    gradB = gradientMagnitude3D(XB, W, H, D)
+    gradA = gradientMagnitude3D(XA, W, H, D)
+    # gradR = gradientMagnitude3D(IR, W, H, D)
+    # gradG = gradientMagnitude3D(IG, W, H, D)
+    # gradB = gradientMagnitude3D(IB, W, H, D)
+    # gradA = gradientMagnitude3D(IA, W, H, D)
 
     index = 0
     # print("begin assembling dataset...")
@@ -439,10 +465,10 @@ def main(data, Channels, params):
             tf[idx]     = colors[labels[index]][0]
             tf[idx + 1] = colors[labels[index]][1]
             tf[idx + 2] = colors[labels[index]][2]
-            if (tf[idx + 3] <= 240):
-                tf[idx + 3] += 15
-            else:
-                tf[idx + 3] = 255
+            # if (tf[idx + 3] <= 240):
+            #     tf[idx + 3] += 15
+            # else:
+            tf[idx + 3] = 255
 
     # # ZA ZAPIS PODATKOV V PGM SLIKE
     # name = "params:_" + str(perp) + "_" + str(exag) + "_" + str(learn) + "_" + str(n)

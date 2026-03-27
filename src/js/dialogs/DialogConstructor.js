@@ -16,17 +16,17 @@ static construct(properties) {
         const widget = this.constructProperty(property);
         // console.log(widget);
         if (property.type === 'transfer-function' || property.type === 'transfer-function-1d') {
-            i+=1;
             const tfHeader = document.createElement('div');
             tfHeader.slot = 'header';
-            if (property.type === 'transfer-function-1d')
-                tfHeader.textContent = i-1;
+            if (i == 0)
+                tfHeader.textContent = "2D TF";
             else
-                tfHeader.textContent = i;
+                tfHeader.textContent = i-1;
             panel.appendChild(tfHeader);
 
             const tfInstance = DOMUtils.instantiate(widget);
             panel.appendChild(tfInstance);
+            i+=1;
             // console.log(panel);
         } else {
             const fieldHTML = `<ui-field><label slot="label">${property.label}</label>${widget}</ui-field>`;

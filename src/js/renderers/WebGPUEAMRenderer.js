@@ -154,6 +154,11 @@ constructor(device, volume, camera, environment, options = {}) {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
 
+    this._cutPlaneBuffer = device.createBuffer({
+        size: 36,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    })
+
     // bindgroup layout
     this._generateBindGroupLayout0 = device.createBindGroupLayout({
         entries: [
@@ -384,6 +389,27 @@ constructor(device, volume, camera, environment, options = {}) {
                 buffer: {
                     type: "uniform"
                 }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
+            },
+            {
+                binding: 2,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
+            },
+            {
+                binding: 3,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
             }
         ]
     });
@@ -501,6 +527,9 @@ _generateFrame() {
         this.extinction                  // uniforms.extinction
     ]));
     device.queue.writeBuffer(this._visModeBuffer, 0, new Uint32Array([this._visMode]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 0, new Float32Array(this._minCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array(this._maxCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 32, new Float32Array([this._viewCutDistance]));
 
     // console.log(this._generatePipeline.getBindGroupLayout(0));
     const bindGroup1 = device.createBindGroup({
@@ -625,6 +654,18 @@ _generateFrame() {
             {
                 binding: 0,
                 resource: { buffer: this._visModeBuffer }
+            },
+            {
+                binding: 1,
+                resource: { buffer: this._cutPlaneBuffer }
+            },
+            {
+                binding: 2,
+                resource: { buffer: this._cutPlaneBuffer }
+            },
+            {
+                binding: 3,
+                resource: { buffer: this._cutPlaneBuffer }
             }
         ]
     });

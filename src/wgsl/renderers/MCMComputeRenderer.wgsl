@@ -88,7 +88,8 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
         let coords = vec3i(position * dimensions);
         let xy = textureLoad(uVolume1, coords, 0).rg;
         let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
-        transferSample = vec4f(orig*color);
+        let sumOrig = clamp((orig.r + orig.g + orig.b + orig.a), 0.0, 1.0);
+        transferSample = vec4f(color.rgb, sumOrig * color.a);
     }
     else if (visMode == 1u) {
          // basic 4 channel sampling

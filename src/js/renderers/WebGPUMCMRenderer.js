@@ -160,6 +160,11 @@ constructor(device, volume, camera, environment, options = {}) {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
 
+    this._cutPlaneBuffer = device.createBuffer({
+        size: 36,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    })
+
     this._integrateBindGroupLayout = device.createBindGroupLayout({
         entries: [
             {
@@ -328,7 +333,28 @@ constructor(device, volume, camera, environment, options = {}) {
                 buffer: {
                     type: "uniform"
                 }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
             }
+            // {
+            //     binding: 2,
+            //     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            //     buffer: {
+            //         type: "uniform"
+            //     }
+            // },
+            // {
+            //     binding: 3,
+            //     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            //     buffer: {
+            //         type: "uniform"
+            //     }
+            // }
         ]
     });
     
@@ -386,9 +412,47 @@ constructor(device, volume, camera, environment, options = {}) {
         size: 80,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
+
+    this._resetBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                buffer: {
+                    type: "uniform"
+                }
+            }
+            // {
+            //     binding: 2,
+            //     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            //     buffer: {
+            //         type: "uniform"
+            //     }
+            // },
+            // {
+            //     binding: 3,
+            //     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            //     buffer: {
+            //         type: "uniform"
+            //     }
+            // }
+        ]
+    });
+
+    this._resetPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [this._resetBindGroupLayout]
+    });
+
     this._resetPipeline = device.createRenderPipeline({
         label: "WebGPUMCMRenderer reset pipeline",
-        layout: "auto",
+        layout: this._resetPipelineLayout,
         vertex: {
             module: this._programs.reset,
             entryPoint: "vertex_main"
@@ -428,6 +492,9 @@ _resetFrame() {
         Math.random(),                              // uniforms.randSeed
         0                                          // uniforms.blur
     ]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 0, new Float32Array(this._minCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array(this._maxCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 32, new Float32Array(this._viewCutDistance));
 
     const bindGroup = device.createBindGroup({
         layout: this._resetPipeline.getBindGroupLayout(0),
@@ -435,7 +502,19 @@ _resetFrame() {
             {
                 binding: 0,
                 resource: { buffer: this._resetUniformBuffer }
+            },
+            {
+                binding: 1,
+                resource: { buffer: this._cutPlaneBuffer }
             }
+            // {
+            //     binding: 2,
+            //     resource: { buffer: this._cutPlaneBuffer }
+            // },
+            // {
+            //     binding: 3,
+            //     resource: { buffer: this._cutPlaneBuffer }
+            // },
         ]
     });
 
@@ -505,6 +584,9 @@ _integrateFrame() {
         this.steps                                 // uniforms.steps
     ]));
     device.queue.writeBuffer(this._visModeBuffer, 0, new Uint32Array([this._visMode]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 0, new Float32Array(this._minCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array(this._maxCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 32, new Float32Array([this._viewCutDistance]));
 
     const bindGroup = device.createBindGroup({
         layout: this._integratePipeline.getBindGroupLayout(0),
@@ -643,7 +725,19 @@ _integrateFrame() {
             {
                 binding: 0,
                 resource: { buffer: this._visModeBuffer }
+            },
+            {
+                binding: 1,
+                resource: { buffer: this._cutPlaneBuffer }
             }
+            // {
+            //     binding: 2,
+            //     resource: { buffer: this._cutPlaneBuffer }
+            // },
+            // {
+            //     binding: 3,
+            //     resource: { buffer: this._cutPlaneBuffer }
+            // }
         ]
     });
 

@@ -16,6 +16,9 @@ constructor(device, volume, camera, environment, options = {}) {
     this._environment = environment;
 
     this._visMode = 0;
+    this._minCutPlane = new Float32Array([0.0, 0.0, 0.0]);
+    this._maxCutPlane = new Float32Array([1.0, 1.0, 1.0]);
+    this._viewCutDistance = 0.0;
 
     this._rebuildBuffers();
 
@@ -197,6 +200,18 @@ setVolume(volume) {
 
 setVisMode(visMode) {
     this._visMode = visMode;
+}
+
+setMinCutPlane(minCutPlane) {
+    this._minCutPlane = new Float32Array(minCutPlane);
+}
+
+setMaxCutPlane(maxCutPlane) {
+    this._maxCutPlane = new Float32Array(maxCutPlane);
+}
+
+setViewCutDistance(viewCutDistance) {
+    this._viewCutDistance = viewCutDistance;
 }
 
 setTransferFunction1(transferFunction) {

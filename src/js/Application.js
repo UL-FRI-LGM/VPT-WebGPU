@@ -119,6 +119,10 @@ constructor() {
     this.mainDialog.addEventListener('recordanimation', this._handleRecordAnimation);
     ////////////////////////////////////////////////////////////////
     }); // TODO: Remove
+
+    this.volumeDetails = [];
+    this.volumeDetailsOld = [];
+    // this._handleCutPlaneChange();
 }
 
 async _handleRecordAnimation(e) {
@@ -156,7 +160,13 @@ _handleRendererChange(img = null, bumpsData = null) {
     const renderer = this.renderingContext.renderer;
     
     const object = DialogConstructor.construct(renderer.properties);
+    let i = 0;
     object.childNodes.forEach(element => {
+        if (element.nodeName == "DIV" && !isNaN(element.textContent) || element.nodeName == "DIV" && element.textContent == this.volumeDetailsOld[i]) {
+            let index = parseInt(element.textContent);
+            element.textContent = this.volumeDetails[index];
+            i++;
+        }
         if (element.nodeName == "UI-TRANSFER-FUNCTION" || element.nodeName == "UI-TRANSFER-FUNCTION-1D") {
             element.style.backgroundRepeat = "no-repeat";
             if (img != null)
@@ -171,6 +181,7 @@ _handleRendererChange(img = null, bumpsData = null) {
             }));
         }
     });
+    this.volumeDetailsOld = this.volumeDetails;
     
     const binds = DOMUtils.bind(object);
     this.rendererDialog = object;
@@ -240,9 +251,18 @@ _handleVisualizationChange() {
     }
 }
 
+_handleCutPlaneChange() {
+    const minCutPlane = this.mainDialog.getMinCutPlane();
+    const maxCutPlane = this.mainDialog.getMaxCutPlane();
+    const viewCutDistance = this.mainDialog.getViewCutDistance();
+    this.renderingContext.renderer.setMinCutPlane(minCutPlane); // nastavim vrednosti
+    this.renderingContext.renderer.setMaxCutPlane(maxCutPlane);
+    this.renderingContext.renderer.setViewCutDistance(viewCutDistance);
+}
+
 async _handleVolumeLoad(e) {
     const options = e.detail;
-    console.log(options);
+    // console.log(options);
     if (options.type === 'file') {
         const readerClass = ReaderFactory(options.filetype);
         if (readerClass) {
@@ -256,8 +276,14 @@ async _handleVolumeLoad(e) {
             });
             this.renderingContext.stopRendering();
             var numModalities = await reader.readMetadata();
-            console.log(numModalities.modalities[0].files);
-            // console.log(numModalities.modalities);
+            let filenames = await numModalities.modalities[0].files;
+            this.volumeDetails = [];
+            filenames.forEach(element => {
+                let temp = element.split("/");
+                this.volumeDetails.push(temp[temp.length-1].split(".")[0]);
+            });
+            // console.log(this.volumeDetails); // tole rabi nekako prit do TF
+            // console.log(numModalities.modalities[0]);
             await this.renderingContext.setVolumes(reader, numModalities.modalities);
             this.renderingContext.startRendering();
         }

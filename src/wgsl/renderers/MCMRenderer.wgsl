@@ -1,6 +1,7 @@
 // #part /wgsl/shaders/renderers/MCM/integrate
 
 const EPS: f32 = 1e-5;
+const SQRT3: f32 = 1.73205080757;
 
 struct VertexOut {
     @builtin(position) position: vec4f,
@@ -23,6 +24,12 @@ struct Uniforms {
     anisotropy: f32,
     maxBounces: u32,
     steps: u32
+};
+
+struct CutPlane {
+    uMinCutPlane: vec3f,
+    uMaxCutPlane: vec3f,
+    uViewCutDistance: f32
 };
 
 // popravi binding
@@ -55,7 +62,8 @@ struct Uniforms {
 
 @group(0) @binding(24) var<uniform> uniforms: Uniforms;
 
-@group(1) @binding(0) var<uniform> visMode: u32;
+@group(1) @binding(0) var<uniform> uVisMode: u32;
+@group(1) @binding(1) var<uniform> cutPlane: CutPlane;
 
 
 const vertices = array<vec2f, 3>(
@@ -95,8 +103,8 @@ fn resetPhoton(state: ptr<function, u32>, photon: ptr<function, Photon>, screenP
     unprojectRand(state, screenPosition, uniforms.mvpInverseMatrix, uniforms.inverseResolution, uniforms.blur, &fromPos, &toPos);
     (*photon).direction = normalize(toPos - fromPos);
     (*photon).bounces = 0u;
-    var tbounds: vec2f = max(intersectCube(fromPos, (*photon).direction), vec2f(0.0));
-    (*photon).position = fromPos + tbounds.x * (*photon).direction;
+    var tbounds: vec2f = max(cutIntersectCube(fromPos, (*photon).direction, cutPlane.uMinCutPlane, cutPlane.uMaxCutPlane), vec2f(0.0));
+    (*photon).position = fromPos + (tbounds.x + cutPlane.uViewCutDistance * SQRT3) * (*photon).direction;
     (*photon).transmittance = vec3f(1.0);
 }
 
@@ -107,40 +115,18 @@ fn sampleEnvironmentMap(d: vec3f) -> vec4f {
 }
  
 fn sampleVolumeColor(position: vec3f) -> vec4f {
-    // let volumeSample1: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
-    // let volumeSample2: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).ba;
-
-    // let volumeSample: vec2f = vec2f(max(volumeSample1.x, volumeSample1.y), min(volumeSample2.x, volumeSample2.y));
-    // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
-    // // let volumeSample: vec2f = textureSampleLevel(uVolume, uVolumeSampler, position, 0.0).rg;
-    // // let transferSample: vec4f = textureSampleLevel(uTransferFunction, uTransferFunctionSampler, volumeSample, 0.0);
-    // return transferSample;
-
-    // let volumeSampleR = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r);
-    // let transferSampleR: vec4f = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, volumeSampleR, 0.0);
-    // let volumeSampleG = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g);
-    // let transferSampleG: vec4f = textureSampleLevel(uTransferFunction2, uTransferFunctionSampler2, volumeSampleG, 0.0);
-    // let volumeSampleB = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b);
-    // let transferSampleB: vec4f = textureSampleLevel(uTransferFunction3, uTransferFunctionSampler3, volumeSampleB, 0.0);
-    // let volumeSampleA = vec2f(textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a, textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a);
-    // let transferSampleA: vec4f = textureSampleLevel(uTransferFunction4, uTransferFunctionSampler4, volumeSampleA, 0.0);
-
-    // let sumAlpha: f32 = transferSampleR.a + transferSampleG.a + transferSampleB.a + transferSampleA.a;
-    // let sumColor = vec3f(transferSampleR.rgb * transferSampleR.a + transferSampleG.rgb * transferSampleG.a + transferSampleB.rgb * transferSampleB.a + transferSampleA.rgb * transferSampleA.a) / sumAlpha;
-
-    // return vec4f(sumColor, sumAlpha/4.0);
-
     let dimensions = vec3f(textureDimensions(uVolume1));
     var transferSample = vec4f(0, 0, 0, 0);
-    if (visMode == 0u) {
+    if (uVisMode == 0u) {
         // clustering shader
         let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
         let coords = vec3i(position * dimensions);
         let xy = textureLoad(uVolume1, coords, 0).rg;
         let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
-        transferSample = vec4f(orig*color);
+        let sumOrig = clamp((orig.r + orig.g + orig.b + orig.a), 0.0, 1.0);
+        transferSample = vec4f(color.rgb, sumOrig * color.a);
     }
-    else if (visMode == 1u) {
+    else if (uVisMode == 1u) {
          // basic 4 channel sampling
         let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
         let volumeSample2: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).ba;
@@ -286,6 +272,8 @@ fn fragment_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
 // #part /wgsl/shaders/renderers/MCM/reset
 
+const SQRT3: f32 = 1.73205080757;
+
 struct VertexOut {
     @builtin(position) position: vec4f,
     @location(0) vertex_position: vec2f,
@@ -305,7 +293,14 @@ struct Uniforms {
     blur: f32
 };
 
+struct CutPlane {
+    uMinCutPlane: vec3f,
+    uMaxCutPlane: vec3f,
+    uViewCutDistance: f32
+};
+
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<uniform> cutPlane: CutPlane;
 
 const vertices = array<vec2f, 3>(
     vec2f(-1.0, -1.0),
@@ -347,8 +342,8 @@ fn fragment_main(@location(0) fragment_position: vec2f) -> FragmentOut {
     var state: u32 = hash3(vec3u(bitcast<u32>(fragment_position.x), bitcast<u32>(fragment_position.y), bitcast<u32>(uniforms.randSeed)));
     unprojectRand(&state, fragment_position, uniforms.mvpInverseMatrix, uniforms.inverseResolution, uniforms.blur, &fromPos, &toPos);
     photon.direction = normalize(toPos - fromPos);
-    let tbounds: vec2f = max(intersectCube(fromPos, photon.direction), vec2f(0.0));
-    photon.position = fromPos + tbounds.x * photon.direction;
+    let tbounds: vec2f = max(cutIntersectCube(fromPos, photon.direction, cutPlane.uMinCutPlane, cutPlane.uMaxCutPlane), vec2f(0.0));
+    photon.position = fromPos + (tbounds.x + cutPlane.uViewCutDistance * SQRT3) * photon.direction;
     photon.transmittance = vec3f(1.0);
     photon.radiance = vec3f(1.0);
     photon.bounces = 0u;

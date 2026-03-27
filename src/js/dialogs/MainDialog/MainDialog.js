@@ -67,6 +67,18 @@ getSelectedVisualization() {
     return this.binds.visselect.value;
 }
 
+getMinCutPlane() {
+    return [this.binds.minX.value, this.binds.minY.value, this.binds.minZ.value];
+}
+
+getMaxCutPlane() {
+    return [this.binds.maxX.value, this.binds.maxY.value, this.binds.maxZ.value];
+}
+
+getViewCutDistance() {
+    return this.binds.cutDistance.value;
+}
+
 setVisualizationParameters(value) {
     switch (value) {
         case "tsne":
@@ -118,17 +130,23 @@ setVisibleTFs(value) {
         case 2:
             // console.log("show all")
             for (let index = 0; index < headers.length; index++) {
-                if (index == 0 || index == headers.length-1)
+                if (index == 0)
+                    headers[index].classList.toggle('invisible', true);
+                else if(index == headers.length-1)
                     continue;
-                headers[index].classList.toggle('invisible', false);
+                else
+                    headers[index].classList.toggle('invisible', false);
             }
             break;
         default:
             // console.log("hide")
             for (let index = 0; index < headers.length; index++) {
-                if (index == 0 || index == headers.length-1)
+                if (index == 0)
+                    headers[index].classList.toggle('invisible', false);
+                else if(index == headers.length-1)
                     continue;
-                headers[index].classList.toggle('invisible', true);
+                else
+                    headers[index].classList.toggle('invisible', true);
             }
             break;
     }

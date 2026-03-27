@@ -54,6 +54,9 @@ struct Uniforms {
 @group(0) @binding(14) var<uniform> uniforms0: Uniforms;
 @group(0) @binding(15) var<uniform> uniforms1: Uniforms;
 @group(1) @binding(0) var<uniform> visMode: u32;
+@group(1) @binding(1) var<uniform> minCutPlane: vec3f;
+@group(1) @binding(2) var<uniform> maxCutPlane: vec3f;
+@group(1) @binding(3) var<uniform> viewCutDistance: f32;
 
 
 const vertices = array<vec2f, 3>(
@@ -91,7 +94,46 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
         let coords = vec3i(position * dimensions);
         let xy = textureLoad(uVolume1, coords, 0).rg;
         let color = textureSampleLevel(uTransferFunction1, uTransferFunctionSampler1, xy, 0.0);
-        transferSample = vec4f(orig*color);
+        let sumOrig = clamp((orig.r + orig.g + orig.b + orig.a), 0.0, 1.0);
+        transferSample = vec4f(color.rgb, sumOrig * color.a);
+        // if (all(transferSample == vec4f(0.0, 0.0, 0.0, 0.0))) {
+        //     transferSample = vec4f(1,0,0,1);
+        // }
+
+        // let volumeSamples = array<f32, 4>(
+        //     textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).r,
+        //     textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).g,
+        //     textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).b,
+        //     textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).a
+        // );
+
+        // let tfSamples = array<vec4f, 4>(
+        //     textureSampleLevel(uTransferFunction1D_1, uTransferFunctionSampler1D_1, vec2f(volumeSamples[0], 0.5), 0.0),
+        //     textureSampleLevel(uTransferFunction1D_2, uTransferFunctionSampler1D_2, vec2f(volumeSamples[1], 0.5), 0.0),
+        //     textureSampleLevel(uTransferFunction1D_3, uTransferFunctionSampler1D_3, vec2f(volumeSamples[2], 0.5), 0.0),
+        //     textureSampleLevel(uTransferFunction1D_4, uTransferFunctionSampler1D_4, vec2f(volumeSamples[3], 0.5), 0.0)
+        // );
+
+        // var sumAlpha: f32 = 0.0;
+        // var sumColor: vec3f = vec3f(0.0);
+        // var activeCount: f32 = 0.0;
+
+        // for (var i: i32 = 0; i < 4; i++) {
+        //     if (volumeSamples[i] > 0.0) {
+        //         sumColor += tfSamples[i].rgb * tfSamples[i].a;
+        //         sumAlpha += tfSamples[i].a;
+        //         activeCount += 1.0;
+        //     }
+        // }
+
+        // if (activeCount <= 0.0) {
+        //     transferSample = vec4f(0.0, 0.0, 0.0, 0.0);
+        // } else {
+        //     let finalAlpha = sumAlpha / activeCount;
+        //     let finalColor = select(vec3f(0.0), sumColor / sumAlpha, sumAlpha > 0.0);
+        //     transferSample = vec4f(finalColor, finalAlpha);
+        // }
+        // transferSample = vec4f(1.0, 0.0, 0.0, 1.0);
     }
     else if (visMode == 1u) {
          // basic 4 channel sampling
