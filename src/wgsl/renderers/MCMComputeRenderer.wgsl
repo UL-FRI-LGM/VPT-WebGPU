@@ -4,6 +4,7 @@ override WORKGROUP_SIZE_X: u32;
 override WORKGROUP_SIZE_Y: u32;
 
 const EPS: f32 = 1e-5;
+const SQRT3: f32 = 1.73205080757;
 
 struct Uniforms {
     mvpInverseMatrix: mat4x4f,
@@ -14,6 +15,13 @@ struct Uniforms {
     anisotropy: f32,
     maxBounces: u32,
     steps: u32
+};
+
+struct CutPlane {
+    uMinCutPlane: vec3f,
+    uViewCutDistance: f32,
+    uMaxCutPlane: vec3f,
+    uVisMode: u32
 };
 
 @group(0) @binding(0) var uVolume0: texture_3d<f32>;
@@ -37,8 +45,7 @@ struct Uniforms {
 @group(0) @binding(17) var<storage, read_write> uPhotons: array<Photon>;
 @group(0) @binding(18) var uRadiance: texture_storage_2d<rgba16float, write>;
 
-@group(1) @binding(0) var<uniform> visMode: u32;
-
+@group(1) @binding(0) var<uniform> cutPlane: CutPlane;
 
 #include <Photon>
 #include <intersectCube>
@@ -60,8 +67,8 @@ fn resetPhoton(state: ptr<function, u32>, photon: ptr<function, Photon>, screenP
     unprojectRand(state, screenPosition, uniforms.mvpInverseMatrix, uniforms.inverseResolution, uniforms.blur, &fromPos, &toPos);
     (*photon).direction = normalize(toPos - fromPos);
     (*photon).bounces = 0u;
-    var tbounds: vec2f = max(intersectCube(fromPos, (*photon).direction), vec2f(0.0));
-    (*photon).position = fromPos + tbounds.x * (*photon).direction;
+    var tbounds: vec2f = max(cutIntersectCube(fromPos, (*photon).direction, cutPlane.uMinCutPlane, cutPlane.uMaxCutPlane), vec2f(0.0));
+    (*photon).position = fromPos + (tbounds.x + cutPlane.uViewCutDistance * SQRT3) * (*photon).direction;
     (*photon).transmittance = vec3f(1.0);
 }
 
@@ -82,7 +89,7 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
 
     let dimensions = vec3f(textureDimensions(uVolume1));
     var transferSample = vec4f(0, 0, 0, 0);
-    if (visMode == 0u) {
+    if (cutPlane.uVisMode == 0u) {
         // cluster sampling
         let orig = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0);
         let coords = vec3i(position * dimensions);
@@ -91,7 +98,7 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
         let sumOrig = clamp((orig.r + orig.g + orig.b + orig.a), 0.0, 1.0);
         transferSample = vec4f(color.rgb, sumOrig * color.a);
     }
-    else if (visMode == 1u) {
+    else if (cutPlane.uVisMode == 1u) {
          // basic 4 channel sampling
         let volumeSample1: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).rg;
         let volumeSample2: vec2f = textureSampleLevel(uVolume0, uVolumeSampler0, position, 0.0).ba;
@@ -114,6 +121,11 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
         transferSample = vec4f(sumColor, sumAlpha/4.0);
         // transferSample = vec4f(transferSampleR * transferSampleG * transferSampleB * transferSampleA);
     }
+
+    // if (any(cutPlane.uMinCutPlane != cutPlane.uMinCutPlane)) {
+    //     transferSample = vec4f(0.0, 0.0, 0.0, 1.0);
+    // }
+    // transferSample = vec4f(0.0, 0.0, 0.0, 1.0);
     return transferSample;
 }
 
@@ -207,6 +219,8 @@ fn compute_main(
 override WORKGROUP_SIZE_X: u32;
 override WORKGROUP_SIZE_Y: u32;
 
+const SQRT3: f32 = 1.73205080757;
+
 struct Uniforms {
     mvpInverseMatrix: mat4x4f,
     inverseResolution: vec2f,
@@ -214,9 +228,16 @@ struct Uniforms {
     blur: f32
 };
 
+struct CutPlane {
+    uMinCutPlane: vec3f,
+    uViewCutDistance: f32,
+    uMaxCutPlane: vec3f,
+    uVisMode: u32
+};
+
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var<storage, read_write> uPhotons: array<Photon>; // TODO: Check if it's possible to use read only
-
+@group(1) @binding(0) var<uniform> cutPlane: CutPlane;
 
 #include <Photon>
 #include <intersectCube>
@@ -252,8 +273,8 @@ fn compute_main(
     var state: u32 = hash3(vec3u(globalId.x, globalId.y, bitcast<u32>(uniforms.randSeed)));
     unprojectRand(&state, screenPosition, uniforms.mvpInverseMatrix, uniforms.inverseResolution, uniforms.blur, &fromPos, &toPos);
     photon.direction = normalize(toPos - fromPos);
-    let tbounds: vec2f = max(intersectCube(fromPos, photon.direction), vec2f(0.0));
-    photon.position = fromPos + tbounds.x * photon.direction;
+    let tbounds: vec2f = max(cutIntersectCube(fromPos, photon.direction, cutPlane.uMinCutPlane, cutPlane.uMaxCutPlane), vec2f(0.0));
+    photon.position = fromPos + (tbounds.x + cutPlane.uViewCutDistance * SQRT3) * photon.direction;
     photon.transmittance = vec3f(1.0);
     photon.radiance = vec3f(1.0);
     photon.bounces = 0u;

@@ -21,12 +21,20 @@ constructor() {
     // console.log(this._handleRendererChange);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
     this._handleVisualizationChange = this._handleVisualizationChange.bind(this);
+    this._handleCutPlaneChange = this._handleCutPlaneChange.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
     this._handleComputeClick = this._handleComputeClick.bind(this);
 
     this.binds.rendererSelect.addEventListener('change', this._handleRendererChange);
     this.binds.toneMapperSelect.addEventListener('change', this._handleToneMapperChange);
     this.binds.visselect.addEventListener('change', this._handleVisualizationChange);
+    this.binds.minX.addEventListener('change', this._handleCutPlaneChange);
+    this.binds.minY.addEventListener('change', this._handleCutPlaneChange);
+    this.binds.minZ.addEventListener('change', this._handleCutPlaneChange);
+    this.binds.maxX.addEventListener('change', this._handleCutPlaneChange);
+    this.binds.maxY.addEventListener('change', this._handleCutPlaneChange);
+    this.binds.maxZ.addEventListener('change', this._handleCutPlaneChange);
+    this.binds.cutDistance.addEventListener('change', this._handleCutPlaneChange);
 
     const about = DOMUtils.instantiate(aboutTemplate);
     this.binds.about.appendChild(about);
@@ -189,6 +197,10 @@ _handleComputeClick() {
 
 _handleVisualizationChange() {
     this.dispatchEvent(new Event('visualizationchange'));
+}
+
+_handleCutPlaneChange() {
+    this.dispatchEvent(new Event('cutplanechange'));
 }
 
 _handleRendererChange() {

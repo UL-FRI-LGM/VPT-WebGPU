@@ -198,9 +198,9 @@ async concat(data) {
 }
 
 async _handleClusterCompute(e) {
-    let fullvolume = [];
     const clusterModality = this.volume[0].metadata.modalities[0];
     const { width, height, depth } = clusterModality.dimensions;
+    let fullvolume = new Uint8ClampedArray(width*height*depth*4);
     // const { format, internalFormat, type } = clusterModality;
     let pointer = 0;
     for (const { index, position } of clusterModality.placements) {
@@ -210,7 +210,7 @@ async _handleClusterCompute(e) {
             fullvolume[pointer] = typedData[i];
         }
     }
-    let test = new Uint8ClampedArray(fullvolume);
+    // let test = new Uint8ClampedArray(fullvolume);
     let header = new Uint32Array(1);
     let args = [];
     switch (e.detail.visualizer) {
@@ -219,8 +219,8 @@ async _handleClusterCompute(e) {
             header[0] = width;
             header[1] = height;
             header[2] = depth;
-            header[3] = (test.length/(width*height*depth));
-            header[4] = test.length;
+            header[3] = (fullvolume.length/(width*height*depth));
+            header[4] = fullvolume.length;
             header[5] = 0;
             header[6] = e.detail.tsnePerp;
             header[7] = e.detail.tsneExag;
@@ -230,16 +230,16 @@ async _handleClusterCompute(e) {
             header[11] = e.detail.sigmaValue;
             header[12] = e.detail.hdbsCluster;
             header[13] = e.detail.hdbsSample;
-            console.log(width + " " + height + " " + depth + " " + test.length/(width*height*depth) + " " + test.length);
-            args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10],  header[11], header[12], header[13], ...test];
+            console.log(width + " " + height + " " + depth + " " + fullvolume.length/(width*height*depth) + " " + fullvolume.length);
+            args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10],  header[11], header[12], header[13], ...fullvolume];
             break;
         case "umap":
             header = new Uint32Array(12);
             header[0] = width;
             header[1] = height;
             header[2] = depth;
-            header[3] = (test.length/(width*height*depth));
-            header[4] = test.length;
+            header[3] = (fullvolume.length/(width*height*depth));
+            header[4] = fullvolume.length;
             header[5] = 1;
             header[6] = e.detail.umapNeighbors;
             header[7] = e.detail.umapDistance;
@@ -247,7 +247,7 @@ async _handleClusterCompute(e) {
             header[9] = e.detail.sigmaValue;
             header[10] = e.detail.hdbsCluster;
             header[11] = e.detail.hdbsSample;
-            args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], header[11], ...test];
+            args = [header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7], header[8], header[9], header[10], header[11], ...fullvolume];
             break;    
         default:
             break;

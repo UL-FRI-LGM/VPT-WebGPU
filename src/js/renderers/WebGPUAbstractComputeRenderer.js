@@ -16,9 +16,9 @@ constructor(device, volume, camera, environment, options = {}) {
     this._environment = environment;
 
     this._visMode = 0;
-    this._minCutPlane = new Float32Array(3);
-    this._maxCutPlane = new Float32Array(3);
-    this._viewCutDistance = 0;
+    this._minCutPlane = new Float32Array([0.0, 0.0, 0.0]);
+    this._maxCutPlane = new Float32Array([1.0, 1.0, 1.0]);
+    this._viewCutDistance = 0.0;
 
     this._rebuildBuffers();
 

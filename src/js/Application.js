@@ -24,6 +24,7 @@ constructor() {
     this._handleRendererChange = this._handleRendererChange.bind(this);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
     this._handleVisualizationChange = this._handleVisualizationChange.bind(this);
+    this._handleCutPlaneChange = this._handleCutPlaneChange.bind(this);
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);
     this._handleEnvmapLoad = this._handleEnvmapLoad.bind(this);
     this._handleRecordAnimation = this._handleRecordAnimation.bind(this);
@@ -99,6 +100,7 @@ constructor() {
 
     this.mainDialog.addEventListener('rendererchange', this._handleRendererChange);
     this.mainDialog.addEventListener('visualizationchange', this._handleVisualizationChange);
+    this.mainDialog.addEventListener('cutplanechange', this._handleCutPlaneChange);
     this.mainDialog.addEventListener('tonemapperchange', this._handleToneMapperChange);
     this.mainDialog.addEventListener('computeclusters', e => {
         this.renderingContext._handleClusterCompute(e)

@@ -156,8 +156,8 @@ constructor(device, volume, camera, environment, options = {}) {
         usage: GPUBufferUsage.STORAGE
     });
 
-    this._visModeBuffer = device.createBuffer({
-        size: 4,  // 4 bytes for a single u32
+    this._cutPlaneBuffer = device.createBuffer({
+        size: 32,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     
@@ -372,7 +372,7 @@ constructor(device, volume, camera, environment, options = {}) {
         entries: [
             {
                 binding: 0,
-                visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                visibility: GPUShaderStage.COMPUTE,
                 buffer: {
                     type: "uniform"
                 }
@@ -400,9 +400,44 @@ constructor(device, volume, camera, environment, options = {}) {
         size: 128,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
+    this._resetBindGroupLayout0 = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "uniform"
+                }
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "storage"
+                }
+            }
+        ]
+    });
+     this._resetBindGroupLayout1 = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.COMPUTE,
+                buffer: {
+                    type: "uniform"
+                }
+            }
+        ]
+    });
+
+
+    this._resetPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [this._resetBindGroupLayout0, this._resetBindGroupLayout1]
+    });
+    
     this._resetPipeline = device.createComputePipeline({
         label: "WebGPUMCMComputeRenderer reset pipeline",
-        layout: "auto",
+        layout: this._resetPipelineLayout,
         compute: {
             module: this._programs.reset,
             entryPoint: "compute_main",
@@ -447,8 +482,15 @@ _resetFrame() {
         Math.random(),                              // uniforms.randSeed
         0,                                          // uniforms.blur
     ]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 0, new Float32Array(this._minCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 12, new Float32Array([this._viewCutDistance]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array(this._maxCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 28, new Uint32Array([this._visMode]));
+    // device.queue.writeBuffer(this._cutPlaneBuffer, 0, new Float32Array([this._minCutPlane]));
+    // device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array([this._maxCutPlane]));
+    // device.queue.writeBuffer(this._cutPlaneBuffer, 28, new Float32Array([this._viewCutDistance]));
 
-    const bindGroup = device.createBindGroup({
+    const bindGroup0 = device.createBindGroup({
         layout: this._resetPipeline.getBindGroupLayout(0),
         entries: [
             {
@@ -461,11 +503,21 @@ _resetFrame() {
             }
         ]
     });
+    const bindGroup1 = device.createBindGroup({
+        layout: this._resetPipeline.getBindGroupLayout(1),
+        entries: [
+            {
+                binding: 0,
+                resource: { buffer: this._cutPlaneBuffer }
+            }
+        ]
+    });
 
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
     pass.setPipeline(this._resetPipeline);
-    pass.setBindGroup(0, bindGroup);
+    pass.setBindGroup(0, bindGroup0);
+    pass.setBindGroup(1, bindGroup1);
     pass.dispatchWorkgroups(...this._getWorkgroupCount());
     pass.end();
     device.queue.submit([encoder.finish()]);
@@ -497,7 +549,15 @@ _renderFrame() {
         this.bounces,                               // uniforms.bounces
         this.steps                                  // uniforms.steps
     ]));
-    device.queue.writeBuffer(this._visModeBuffer, 0, new Uint32Array([this._visMode]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 0, new Float32Array(this._minCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 12, new Float32Array([this._viewCutDistance]));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array(this._maxCutPlane));
+    device.queue.writeBuffer(this._cutPlaneBuffer, 28, new Uint32Array([this._visMode]));
+    // device.queue.writeBuffer(this._cutPlaneBuffer, 16, new Float32Array([]));
+    // device.queue.writeBuffer(this._cutPlaneBuffer, 28, new Float32Array([]));
+    // device.queue.writeBuffer(this._visModeBuffer, 0, new Uint32Array([this._visMode]));
+    // console.log(this._minCutPlane, this._maxCutPlane, this._viewCutDistance);
+    
 
     const bindGroup = device.createBindGroup({
         layout: this._renderPipeline.getBindGroupLayout(0),
@@ -611,7 +671,7 @@ _renderFrame() {
         entries: [
             {
                 binding: 0,
-                resource: { buffer: this._visModeBuffer }
+                resource: { buffer: this._cutPlaneBuffer }
             }
         ]
     });

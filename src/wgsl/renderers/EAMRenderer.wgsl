@@ -2,6 +2,8 @@
 
 diagnostic(off, derivative_uniformity);
 
+const SQRT3: f32 = 1.73205080757;
+
 struct VertexOut {
     @builtin(position) position: vec4f,
     @location(0) rayFrom: vec3f,
@@ -13,6 +15,12 @@ struct Uniforms {
     stepSize: f32,
     offset: f32,
     extinction: f32
+};
+
+struct CutPlane {
+    uMinCutPlane: vec3f,
+    uMaxCutPlane: vec3f,
+    uViewCutDistance: f32
 };
 
 // @group(0) @binding(0) var uVolume0: texture_3d<f32>;
@@ -54,9 +62,10 @@ struct Uniforms {
 @group(0) @binding(14) var<uniform> uniforms0: Uniforms;
 @group(0) @binding(15) var<uniform> uniforms1: Uniforms;
 @group(1) @binding(0) var<uniform> visMode: u32;
-@group(1) @binding(1) var<uniform> minCutPlane: vec3f;
-@group(1) @binding(2) var<uniform> maxCutPlane: vec3f;
-@group(1) @binding(3) var<uniform> viewCutDistance: f32;
+@group(1) @binding(1) var<uniform> cutPlane: CutPlane;
+// @group(1) @binding(1) var<uniform> minCutPlane: vec3f;
+// @group(1) @binding(2) var<uniform> maxCutPlane: vec3f;
+// @group(1) @binding(3) var<uniform> viewCutDistance: f32;
 
 
 const vertices = array<vec2f, 3>(
@@ -193,13 +202,13 @@ fn sampleVolumeColor(position: vec3f) -> vec4f {
 @fragment
 fn fragment_main(@location(0) rayFrom: vec3f, @location(1) rayTo: vec3f) -> @location(0) vec4f {
     let rayDirection: vec3f = rayTo - rayFrom;
-    let tbounds: vec2f = max(intersectCube(rayFrom, rayDirection), vec2f(0.0));
+    let tbounds: vec2f = max(cutIntersectCube(rayFrom, rayDirection, cutPlane.uMinCutPlane, cutPlane.uMaxCutPlane), vec2f(0.0));
 
     if (tbounds.x >= tbounds.y) {
         return vec4f(0.0, 0.0, 0.0, 1.0);
     }
     
-    let fromVal: vec3f = mix(rayFrom, rayTo, tbounds.x);
+    let fromVal: vec3f = mix(rayFrom, rayTo, (tbounds.x + cutPlane.uViewCutDistance * SQRT3));
     let toVal: vec3f = mix(rayFrom, rayTo, tbounds.y);
 
     let rayStepLength: f32 = distance(fromVal, toVal) * uniforms0.stepSize;

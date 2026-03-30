@@ -1,9 +1,13 @@
 import os
 import sys
 import math
+import time
+import glob
 import array
 import random
 import struct
+import psutil
+import threading
 from openTSNE import TSNE
 import numpy as np
 import hdbscan
@@ -232,6 +236,47 @@ def generate_checkerboard_coords(W, H, D, block_size=16):
 def write_block(file_obj, type_id: int, payload: bytes):
     file_obj.write(struct.pack("<II", type_id, len(payload)))
     file_obj.write(payload)
+
+
+def run_with_profiling(func, output_file="profile.txt", *args, **kwargs):
+    process = psutil.Process(os.getpid())
+    
+    # memory tracking
+    memory_samples = []
+    tracking = True
+    
+    def track_memory():
+        while tracking:
+            mem = process.memory_info().rss / (1024 * 1024)  # MB
+            memory_samples.append(mem)
+            time.sleep(0.1)
+    
+    # start memory tracking thread
+    tracker = threading.Thread(target=track_memory)
+    tracker.daemon = True
+    tracker.start()
+    
+    # run function
+    start_time = time.time()
+    try:
+        result = func(*args, **kwargs)
+    finally:
+        elapsed = time.time() - start_time
+        tracking = False
+        tracker.join()
+    
+    # compute stats
+    peak_memory = max(memory_samples)
+    avg_memory = sum(memory_samples) / len(memory_samples)
+    
+    # write to file
+    with open(output_file, "w") as f:
+        f.write(f"Runtime:        {elapsed:.2f} seconds\n")
+        f.write(f"Peak memory:    {peak_memory:.2f} MB\n")
+        f.write(f"Average memory: {avg_memory:.2f} MB\n")
+    
+    print(f"Profile saved to {output_file}")
+    return result
 
 
 def main(data, Channels, params):
@@ -503,6 +548,43 @@ def main(data, Channels, params):
         write_block(file, 1, rgba_volume.tobytes())
         write_block(file, 2, tf.tobytes())
 
+
+# raw_files = glob.glob("./bin/*.raw")  # or whatever folder they're in
+
+# for raw_file in raw_files:
+#     print(f"Processing {raw_file}...")
+    
+#     data = []
+#     with open(raw_file) as f:
+#         data = f.read().split(',')
+
+#     params = []
+#     volume = None
+#     W = int(data[0])
+#     H = int(data[1])
+#     D = int(data[2])
+#     Channels = int(data[3])
+#     size = int(data[4])
+
+#     if (int(data[5]) == 0):
+#         params.append(int(data[5]))
+#         for i in range(6, 14):
+#             params.append(int(data[i]))
+#         volume = np.asarray(data[14:], dtype=np.uint8)
+#         volume = volume.reshape((W, H, D, Channels))
+#     else:
+#         params.append(int(data[5]))
+#         for i in range(6, 12):
+#             params.append(int(data[i]))
+#         volume = np.asarray(data[12:], dtype=np.uint8)
+#         volume = volume.reshape((W, H, D, Channels))
+
+#     # name output profile after the input file
+#     profile_name = raw_file.replace(".raw", "_profile.txt")
+    
+#     run_with_profiling(main, profile_name, volume, Channels, params)
+#     print(f"Done: {raw_file} → {profile_name}")
+
 data = []
 with open("./bin/data.raw") as f:
     data = f.read().split(',')
@@ -529,4 +611,3 @@ else:
     volume = volume.reshape((W, H, D, Channels))
 
 main (volume, Channels, params)
-# main(volume)
