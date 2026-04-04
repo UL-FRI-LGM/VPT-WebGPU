@@ -51,6 +51,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             },
             { name: "background", label: "Background", type: "color-chooser", value: "#ffffff" },
 
+            { name: "filterEnabled", label: "Bilateral filter (!)", type: "checkbox", value: false },
+            { name: "filterSigma", label: "Sigma", type: "spinner", value: 5.0, min: 0.1 },
+            { name: "filterKSigma", label: "kSigma", type: "spinner", value: 2.0, min: 0.1 },
+            { name: "filterThreshold", label: "Threshold", type: "spinner", value: 0.1, min: 0.001 },
+
             { name: "frameTime", label: "Frame time", type: "text", value: "0 ms" },
             { name: "fps", label: "FPS", type: "text", value: "0.0" },
 
@@ -104,6 +109,22 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             if (name === "cameraPreset") {
                 this._cameraPresetAnimator.setPreset(value);
                 this._cameraPresetAnimator.reset();
+                this.reset();
+            }
+
+            if (name === "filterEnabled" && bind) {
+                const accumulateBind = bind.closest("div")
+                    .querySelector('[bind="accumulate"]');
+                if (this.filterEnabled && accumulateBind) {
+                    accumulateBind.disabled = true;
+                    this._accumulateRestore = this.accumulate;
+                    accumulateBind.checked = false;
+                    this.accumulate = false;
+                } else if (!this.filterEnabled && accumulateBind) {
+                    accumulateBind.disabled = false;
+                    accumulateBind.checked = this._accumulateRestore ?? true;
+                    this.accumulate = this._accumulateRestore ?? true;
+                }
                 this.reset();
             }
 
@@ -177,6 +198,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         const commonCode = SHADERS.renderers.NeuralCache.common;
         const resetCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.reset;
         const renderCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.render;
+        const filterCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.filter;
 
         this._programs = {
             reset: device.createShaderModule({
@@ -186,6 +208,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             render: device.createShaderModule({
                 label: "WebGPUNeuralCacheRenderer render shader module",
                 code: renderCode,
+            }),
+            filter: device.createShaderModule({
+                label: "WebGPUNeuralCacheRenderer filter shader module",
+                code: filterCode,
             }),
         };
 
@@ -227,11 +253,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     get uniformSize() {
-        return 128;
+        return 144;
     }
 
     get radianceSize() {
-        return 32;
+        return 48;
     }
 
     // Packed 8 floats instead of a structure with padding
@@ -331,6 +357,19 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 },
             },
         });
+
+        this._filterPipeline = this._device.createComputePipeline({
+            label: "WebGPUNeuralCacheRenderer filter pipeline",
+            layout: "auto",
+            compute: {
+                module: this._programs.filter,
+                entryPoint: "bilateralFilter",
+                constants: {
+                    WORKGROUP_SIZE_X: this._workgroup_size[0],
+                    WORKGROUP_SIZE_Y: this._workgroup_size[1],
+                },
+            },
+        });
     }
 
     _resetFrame() {
@@ -378,11 +417,34 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         });
 
         const encoder = this._device.createCommandEncoder();
+
+        // Path tracing
         const pass = encoder.beginComputePass();
         pass.setPipeline(this._renderPipeline);
         pass.setBindGroup(0, bindGroup);
         pass.dispatchWorkgroups(...this._getWorkgroupCount());
         pass.end();
+
+        // Bilateral filter
+        if (this.filterEnabled) {
+            const filterBindGroup = this._device.createBindGroup({
+                label: "WebGPUNeuralCacheRenderer filter bind group",
+                layout: this._filterPipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: this._uniformBuffer } },
+                    { binding: 1, resource: { buffer: this._radianceBuffer } },
+                    { binding: 2, resource: this._renderBuffer.getAttachments()[0].texture.createView() },
+                    { binding: 9, resource: this._groundTruthBuffer }
+                ],
+            });
+
+            const filterPass = encoder.beginComputePass();
+            filterPass.setPipeline(this._filterPipeline);
+            filterPass.setBindGroup(0, filterBindGroup);
+            filterPass.dispatchWorkgroups(...this._getWorkgroupCount());
+            filterPass.end();
+        }
+
         this._device.queue.submit([encoder.finish()]);
 
         this._device.queue.onSubmittedWorkDone().then(() => {
@@ -467,6 +529,12 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             parseInt(hex.slice(3, 5), 16) / 255, // green
             parseInt(hex.slice(5, 7), 16) / 255, // blue
         ]));
+
+        this._device.queue.writeBuffer(this._uniformBuffer, 124, new Float32Array([
+            this.filterSigma,
+            this.filterKSigma,
+            this.filterThreshold,
+        ]));
     }
 
     _updateFPS(start, time) {
@@ -515,6 +583,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             accumulate: this.accumulate,
             stochastic: this.stochastic,
             resolution: this._resolution,
+            filterEnabled: this.filterEnabled,
+            filterSigma: this.filterSigma,
+            filterKSigma: this.filterKSigma,
+            filterThreshold: this.filterThreshold,
         };
     }
 

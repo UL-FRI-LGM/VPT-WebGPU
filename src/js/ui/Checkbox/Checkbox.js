@@ -38,7 +38,20 @@ set checked(checked) {
     }
 }
 
+get disabled() {
+    return this.hasAttribute('disabled');
+}
+
+set disabled(value) {
+    if (value) {
+        this.setAttribute('disabled', '');
+    } else {
+        this.removeAttribute('disabled');
+    }
+}
+
 clickListener() {
+    if (this.disabled) return;
     this.checked = !this.checked;
 }
 
