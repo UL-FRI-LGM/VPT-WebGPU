@@ -41,7 +41,8 @@ static constructProperty(property) {
                 `<button type="button" data-action="${item.action}">${item.label}</button>`
             ).join('');
             return `<div style="display: flex; gap: 5px; padding: 0 10px;">${buttons}</div>`;
-        case 'text': return `<span style="display: inline-block;" bind="${property.name}">${property.value}</span>`;
+        case 'text': return `<span style="display: inline-block;${property.color ? ` color: ${property.color};` : ''}" bind="${property.name}">${property.value}</span>`;
+        case 'text-input': return `<input type="text" bind="${property.name}" value="${property.value}" ${property.placeholder ? `placeholder="${property.placeholder}"` : ''}>`;
         case 'select':
             const options = property.options.map(opt =>
                 `<option value="${opt.value}" ${opt.value === property.value ? 'selected' : ''}>${opt.label}</option>`

@@ -414,6 +414,9 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
             let nIndex = u32(nx) + u32(ny) * res.x;
 
             let neighbor = uRadiance[nIndex];
+            if neighbor.outOfBounds == 1 || neighbor.directSamples == 0 || neighbor.indirectSamples == 0 {
+                continue;
+            }
             let neighborColor = getDisplayColor(neighbor);
 
             let spatialDist = f32(dx * dx + dy * dy);

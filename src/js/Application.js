@@ -175,10 +175,13 @@ _handleRendererChange() {
 
     // Listen for renderer property changes to update UI (for text properties)
     renderer.addEventListener('change', e => {
-        const { name, value } = e.detail;
+        const { name, value, color } = e.detail;
         if (binds[name] && binds[name].tagName === 'SPAN') {
             // Only update span elements to avoid triggering input change events
             binds[name].innerText = value;
+            if (color !== undefined) {
+                binds[name].style.color = color;
+            }
         }
     });
 

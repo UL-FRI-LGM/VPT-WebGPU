@@ -51,7 +51,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             },
             { name: "background", label: "Background", type: "color-chooser", value: "#ffffff" },
 
-            { name: "filterEnabled", label: "Bilateral filter (!)", type: "checkbox", value: false },
+            { name: "filterEnabled", label: "Bilateral filter", type: "checkbox", value: false },
             { name: "filterSigma", label: "Sigma", type: "spinner", value: 5.0, min: 0.1 },
             { name: "filterKSigma", label: "kSigma", type: "spinner", value: 2.0, min: 0.1 },
             { name: "filterThreshold", label: "Threshold", type: "spinner", value: 0.1, min: 0.001 },
@@ -83,6 +83,22 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 ]
             },
             { name: "transform", buttonLabel: "Print camera transform", type: "button" },
+
+            { name: "trainServer", label: "Training server", type: "text-input", value: "localhost:8001" },
+            { name: "status", label: "Server status", type: "text", value: "Disconnected", color: "red" },
+            { name: "ping", label: "Ping", type: "text", value: "0 ms" },
+            { name: "valLoss", label: "Validation loss", type: "text", value: "0.0" },
+            { name: "train", label: "Train", type: "checkbox", value: true },
+            { name: "predict", label: "Predict", type: "checkbox", value: false },
+            {
+                name: "serverControls",
+                type: "button-row",
+                items: [
+                    { action: "connect", label: "Connect" },
+                    { action: "disconnect", label: "Disconnect" },
+                    { action: "reset", label: "Reset" },
+                ]
+            },
 
             { name: "store", label: "Store data", type: "checkbox", value: false },
             { name: "dataSize", label: "Data size", type: "text", value: "0 MB" },
@@ -125,7 +141,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     accumulateBind.checked = this._accumulateRestore ?? true;
                     this.accumulate = this._accumulateRestore ?? true;
                 }
-                this.reset();
+            }
+
+            if (name === "trainServer") {
+                this.trainServerConnect(value);
             }
 
             // Reset on parameter changes that affect the path tracing
@@ -138,8 +157,21 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 "transferFunction",
                 "stochastic",
                 "background",
+                "filterEnabled",
             ].includes(name)) {
                 this.reset();
+            }
+
+            // Reset NN when parameter affecting radiance changes
+            if ([
+                "bounces",
+                "steps",
+                "extinction",
+                "anisotropy",
+                "transferFunction",
+                "filterEnabled",
+            ].includes(name)) {
+                this.trainServerSend("model-reset");
             }
         });
 
@@ -192,6 +224,20 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                         Array.from(this._orbit._focus), this._orbit._focusDistance,
                     );
                     break;
+                case "connect":
+                    this.trainServerConnect(this.trainServer);
+                    break;
+                case "disconnect":
+                    this.trainServerDisconnect();
+                    break;
+                case "reset":
+                    if (this.serverConnected) {
+                        this.trainServerSend("model-reset");
+                        this.dispatchEvent(new CustomEvent("change", {
+                            detail: { name: "valLoss", value: "/" }
+                        }));
+                    }
+                    break;
             }
         });
 
@@ -217,6 +263,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         this._createBuffers();
         this._createPipeline();
+
+        this.serverConnected = false;
+        this.trainingInProgress = false;
     }
 
     destroy() {
@@ -224,6 +273,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._uniformBuffer.destroy();
         this._groundTruthBuffer.destroy();
         this._stagingBuffer.destroy();
+        this.websocket.close();
         super.destroy();
     }
 
@@ -250,6 +300,127 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this.dispatchEvent(new CustomEvent("change", {
             detail: { name: "dataSize", value: "0 MB" }
         }));
+    }
+
+    trainServerDisconnect() {
+        if (this.websocket !== undefined) {
+            this.websocket.close();
+            this.websocket = undefined;
+        }
+
+        if (this.pingdom !== undefined) {
+            clearInterval(this.pingdom);
+            this.pingdom = undefined;
+        }
+
+        this.serverConnected = false;
+        this.trainingInProgress = false;
+        this.dispatchEvent(new CustomEvent("change", {
+            detail: { name: "status", value: "Disconnected", color: "red" }
+        }));
+        this.dispatchEvent(new CustomEvent("change", {
+            detail: { name: "ping", value: "0 ms" }
+        }));
+        this.dispatchEvent(new CustomEvent("change", {
+            detail: { name: "valLoss", value: "0.0" }
+        }));
+    }
+
+    trainServerConnect(address) {
+        this.trainServerDisconnect();
+
+        let wsURI;
+        try {
+            const url = new URL(`ws://${address}`);
+            if (url.port === "") {
+                return;
+            }
+            wsURI = url.href;
+        } catch (e) {
+            return;
+        }
+
+        this.websocket = new WebSocket(wsURI);
+        this.websocket.addEventListener("error", () => {
+            this.trainServerDisconnect();
+        });
+        this.websocket.addEventListener("close", () => {
+            this.trainServerDisconnect();
+        });
+        this.websocket.addEventListener("message", (e) => {
+            const message = JSON.parse(e.data);
+            switch (message["type"]) {
+                case "pong":
+                    const received = performance.now();
+                    const ping = ((received - message["time"]) / 2).toFixed(1);
+                    this.dispatchEvent(new CustomEvent("change", {
+                        detail: { name: "ping", value: `${ping} ms` }
+                    }));
+                    break;
+                case "model-created":
+                    this.serverConnected = true;
+                    this.dispatchEvent(new CustomEvent("change", {
+                        detail: { name: "status", value: "Connected", color: "green" }
+                    }));
+                    this.dispatchEvent(new CustomEvent("change", {
+                        detail: { name: "valLoss", value: "/" }
+                    }));
+                    this.trainServerSend("ping", {time: performance.now()});
+                    this.pingdom = setInterval(() => {
+                        this.trainServerSend("ping", {time: performance.now()});
+                    }, 5000);
+                    break;
+                case "model-reset":
+                    this.dispatchEvent(new CustomEvent("change", {
+                        detail: { name: "valLoss", value: "/" }
+                    }));
+                    break;
+                case "metrics":
+                    this.trainingInProgress = false;
+                    const valLoss = message["val_loss"].toFixed(5);
+                    this.dispatchEvent(new CustomEvent("change", {
+                        detail: { name: "valLoss", value: valLoss }
+                    }));
+                    break;
+            }
+        });
+    }
+
+    trainServerSend(messageType, data) {
+        if (messageType === "ground-truth") {
+            if (this.trainingInProgress) {
+                return;
+            }
+            this.trainingInProgress = true;
+        }
+
+        const header = new TextEncoder().encode(messageType);
+
+        let dataLength;
+        if (data === undefined) {
+            dataLength = 0;
+        } else if (ArrayBuffer.isView(data)) {
+            dataLength = data.byteLength;
+        } else {
+            data = JSON.stringify(data);
+            dataLength = data.length;
+        }
+
+        const buffer = new ArrayBuffer(header.byteLength + 1 + dataLength);
+        const bytes = new Uint8Array(buffer);
+        bytes.set(header, 0);
+        bytes[header.byteLength] = 0;
+
+        if (ArrayBuffer.isView(data)) {
+            bytes.set(new Uint8Array(data.buffer), header.byteLength + 1);
+        } else if (data !== undefined) {
+            bytes.set(new TextEncoder().encode(data), header.byteLength + 1);
+        }
+
+        if (this.websocket !== undefined) {
+            console.log(messageType);
+            this.websocket.send(buffer);
+        }
     }
 
     get uniformSize() {
@@ -452,7 +623,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             this._updateFPS(startTime, frameTime);
         });
 
-        if (!this.store || this._groundTruthBytes >= this.groundTruthMaxBytes || this._stagingBufferMapped) {
+        const downloadData = this.store && this._groundTruthBytes < this.groundTruthMaxBytes;
+        const sendData = this.serverConnected && this.train;
+
+        if (this._stagingBufferMapped || !downloadData && !sendData) {
             return;
         }
 
@@ -470,22 +644,28 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._stagingBuffer.mapAsync(GPUMapMode.READ).then(() => {
             const data = new Float32Array(this._stagingBuffer.getMappedRange());
 
-            this._groundTruthZip.file(
-                "indirect_radiance_"
-                + this._groundTruthFrames.toString().padStart(4, "0")
-                + ".bin",
-                data.slice().buffer,
+            if (downloadData) {
+                this._groundTruthZip.file(
+                    "indirect_radiance_"
+                    + this._groundTruthFrames.toString().padStart(4, "0")
+                    + ".bin",
+                    data.slice().buffer,
 
-            );
+                );
+                this._groundTruthBytes += data.byteLength;
+
+                const size = (this._groundTruthBytes / 1024 / 1024).toFixed(1);
+                this.dispatchEvent(new CustomEvent("change", {
+                    detail: { name: "dataSize", value: `${size} MB` }
+                }));
+            }
+
+            if (sendData) {
+                this.trainServerSend("ground-truth", data);
+            }
+
             this._groundTruthFrames++;
-            this._groundTruthBytes += data.byteLength;
             this._stagingBuffer.unmap();
-
-            const size = (this._groundTruthBytes / 1024 / 1024).toFixed(1);
-            this.dispatchEvent(new CustomEvent("change", {
-                detail: { name: "dataSize", value: `${size} MB` }
-            }));
-
             this._stagingBufferMapped = false;
         });
     }
