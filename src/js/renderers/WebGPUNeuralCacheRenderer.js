@@ -130,26 +130,51 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 this.reset();
             }
 
-            if (name === "filterEnabled" && bind) {
+            // During training we cannot accumulate with filtering because we
+            // are overwriting ground truth data because of easier implementation
+            if ((name === "filterEnabled" || name === "train") && bind) {
                 const accumulateBind = bind.closest("div")
                     .querySelector('[bind="accumulate"]');
-                if (this.filterEnabled && accumulateBind) {
+                const shouldDisable = this.filterEnabled && this.train;
+
+                if (shouldDisable && accumulateBind) {
                     accumulateBind.disabled = true;
                     this._accumulateRestore = this.accumulate;
                     accumulateBind.checked = false;
                     this.accumulate = false;
-                } else if (!this.filterEnabled && accumulateBind) {
+                } else if (!value && accumulateBind) {
                     accumulateBind.disabled = false;
-                    accumulateBind.checked = this._accumulateRestore ?? true;
-                    this.accumulate = this._accumulateRestore ?? true;
+                    if (this._accumulateRestore) {
+                        accumulateBind.checked = this._accumulateRestore;
+                        this.accumulate = this._accumulateRestore;
+                        this._accumulateRestore = undefined;
+                    }
                 }
             }
 
             if (name === "trainServer") {
                 this.trainServerConnect(value);
-            } else if (name === "predict" && value){
-                if (this._modelStale) {
+            } else if (name === "predict") {
+                const trainBind = bind.closest("div")
+                    .querySelector('[bind="train"]');
+                if (trainBind && value) {
+                    this._trainRestore = trainBind.checked;
+                    trainBind.checked = false;
+                    trainBind.disabled = true;
+                    this.train = false;
+                } else if (trainBind && !value) {
+                    trainBind.disabled = false;
+                    if (this._trainRestore) {
+                        trainBind.checked = this._trainRestore;
+                        this.train = this._trainRestore;
+                        this._trainRestore = undefined;
+                    }
+                }
+
+                if (value && this._modelStale) {
                     this.trainServerSend("model-request");
+                } else if (!value) {
+                    this.reset();
                 }
             }
 
@@ -576,6 +601,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._stagingBufferMapped = false;
         this.clearGroundTruth();
 
+        if (this._model) {
+            this._model.setResolution(this._resolution);
+        }
+
         super._rebuildBuffers();
     }
 
@@ -720,7 +749,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 { binding: 7, resource: this._environment.texture.createView() },
                 { binding: 8, resource: this._environment.sampler },
                 { binding: 9, resource: { buffer: this._groundTruthBuffer } },
-                { binding: 10, resource: { buffer: this._samplePointsBuffer } },
             ],
         });
 

@@ -191,7 +191,7 @@ export class RadianceFieldNetwork {
     }
 
     _createPrograms(shader) {
-        const module = this.device.createShaderModule({
+        this._shaderModule = this.device.createShaderModule({
             label: "radiance field network shader module",
             code: shader,
         });
@@ -200,11 +200,15 @@ export class RadianceFieldNetwork {
             label: "radiance field network pipeline",
             layout: "auto",
             compute: {
-                module: module,
+                module: this._shaderModule,
                 constants: this.constants,
             },
         });
 
+        this._createBindGroups();
+    }
+
+    _createBindGroups() {
         this.uniformsBindGroup = this.device.createBindGroup({
             label: "radiance field network uniforms bind group",
             layout: this.pipeline.getBindGroupLayout(0),
@@ -298,6 +302,30 @@ export class RadianceFieldNetwork {
         this.dirTableOffsets.destroy();
         this.outputTexture.destroy();
         this.embeddingsBuffer.destroy();
+    }
+
+    setResolution(resolution) {
+        if (resolution === this.resolution) {
+            return;
+        }
+
+        this.resolution = resolution;
+        this.constants.RESOLUTION = resolution;
+
+        this.outputTexture.destroy();
+        this.embeddingsBuffer.destroy();
+        this._initializeForwardPassBuffers();
+
+        this.pipeline = this.device.createComputePipeline({
+            label: "radiance field network pipeline",
+            layout: "auto",
+            compute: {
+                module: this._shaderModule,
+                constants: this.constants,
+            },
+        });
+
+        this._createBindGroups();
     }
 
     renderToCanvas(canvasRenderer) {

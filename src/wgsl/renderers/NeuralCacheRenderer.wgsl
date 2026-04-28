@@ -100,8 +100,6 @@ struct SamplePoint {
     dir: vec2f,
 };
 
-@group(0) @binding(10) var<storage, read_write> uSamplePoints: array<SamplePoint>;
-
 @group(0) @binding(3) var uVolume: texture_3d<f32>;
 @group(0) @binding(4) var uVolumeSampler: sampler;
 @group(0) @binding(5) var uTransferFunction: texture_2d<f32>;
@@ -237,14 +235,6 @@ fn render(@builtin(global_invocation_id) globalId: vec3u) {
     uGroundTruth[baseIndex + 5] = indirectRadiance.value.x;
     uGroundTruth[baseIndex + 6] = indirectRadiance.value.y;
     uGroundTruth[baseIndex + 7] = indirectRadiance.value.z;
-
-    uSamplePoints[globalIndex] = SamplePoint(
-        indirectRadiance.position,
-        vec2f(
-            (indirectRadiance.azimuth + PI) / (2.01 * PI),
-            indirectRadiance.elevation / PI
-        )
-    );
 
     let c = getDisplayColor(stored);
     textureStore(uImage, globalId.xy, vec4f(c, 1.0));
@@ -398,6 +388,8 @@ fn createRay(screenPosition: vec2f, state: ptr<function, u32>) -> Ray {
 }
 
 // #part /wgsl/shaders/renderers/NeuralCache/neuralRender
+
+@group(0) @binding(10) var<storage, read_write> uSamplePoints: array<SamplePoint>;
 
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
 fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
