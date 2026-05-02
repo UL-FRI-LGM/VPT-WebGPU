@@ -91,7 +91,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             { name: "ping", label: "Ping", type: "text", value: "0 ms" },
             { name: "valLoss", label: "Validation loss", type: "text", value: "0.0" },
             { name: "train", label: "Train", type: "checkbox", value: true },
-            { name: "predict", label: "Predict", type: "checkbox", value: false },
+            { name: "predict", label: "Predict", type: "checkbox", value: false, disabled: true },
             {
                 name: "serverControls",
                 type: "button-row",
@@ -377,6 +377,12 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this.dispatchEvent(new CustomEvent("change", {
             detail: { name: "valLoss", value: "0.0" }
         }));
+
+        const predictBind = document.querySelector('[bind="predict"]');
+        if (predictBind) {
+            predictBind.checked = false;
+            predictBind.disabled = true;
+        }
     }
 
     trainServerConnect(address) {
@@ -404,7 +410,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this.websocket.addEventListener("message", (e) => {
             const raw = new Uint8Array(e.data);
             const nullIndex = raw.indexOf(0);
-            const json = JSON.parse(new TextDecoder().decode(raw.subarray(0, nullIndex)));
+            const jsonStr = new TextDecoder().decode(raw.subarray(0, nullIndex));
+            const json = JSON.parse(jsonStr);
             const payload = raw.subarray(nullIndex + 1);
 
             switch (json["type"]) {
@@ -429,6 +436,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     });
                     this._modelStale = true;
                     this.serverConnected = true;
+                    const predictBind = document.querySelector('[bind="predict"]');
+                    if (predictBind) {
+                        predictBind.disabled = false;
+                    }
                     this.dispatchEvent(new CustomEvent("change", {
                         detail: { name: "status", value: "Connected", color: "green" }
                     }));
@@ -448,10 +459,12 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 case "metrics":
                     this.trainingInProgress = false;
                     this._modelStale = true;
-                    const valLoss = json["val_loss"].toFixed(5);
-                    this.dispatchEvent(new CustomEvent("change", {
-                        detail: { name: "valLoss", value: valLoss }
-                    }));
+                    if (json["val_loss"] !== null) {
+                        const valLoss = json["val_loss"].toFixed(5);
+                        this.dispatchEvent(new CustomEvent("change", {
+                            detail: { name: "valLoss", value: valLoss }
+                        }));
+                    }
                     break;
                 case "model-weights":
                     parseModelWeights(payload.buffer).then(
