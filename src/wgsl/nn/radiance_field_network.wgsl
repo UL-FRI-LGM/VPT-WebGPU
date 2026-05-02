@@ -10,11 +10,17 @@ override HIDDEN_DIM: u32;
 override POS_FIRST_HASH_LEVEL: u32;
 override DIR_FIRST_HASH_LEVEL: u32;
 
+struct Uniforms {
+    background: vec3f,
+    mode: u32,
+};
+
 // Uniforms
 @group(0) @binding(0) var<storage, read> posGridSizes: array<u32>;  // N_l
 @group(0) @binding(1) var<storage, read> dirGridSizes: array<u32>;  // N_l
 @group(0) @binding(2) var<storage, read> posTableOffsets: array<u32>;
 @group(0) @binding(3) var<storage, read> dirTableOffsets: array<u32>;
+@group(0) @binding(4) var<uniform> uniforms: Uniforms;
 
 // Position and direction encoding tables (F=4, so each entry is vec4f)
 @group(1) @binding(0) var<storage, read> posTables: array<vec4f>;
@@ -30,7 +36,16 @@ struct SamplePoint {
     dir: vec2f,
 };
 
+struct Radiance {
+    direct: vec3f,
+    directSamples: u32,
+    indirect: vec3f,
+    indirectSamples: u32,
+    outOfBounds: u32,
+};
+
 @group(2) @binding(0) var<storage, read> samplePoints: array<SamplePoint>;
+@group(2) @binding(1) var<storage, read_write> uRadiance: array<Radiance>;
 
 @group(2) @binding(2) var<storage, read_write> embeddingsVec4: array<vec4f>;
 
@@ -259,27 +274,37 @@ fn forward(
 ) {
     var pixelIndex = globalId.x;
     let pixels = RESOLUTION * RESOLUTION;
-    let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
+    if pixelIndex >= pixels {
+        return;
+    }
 
-    while pixelIndex < pixels {
-        let input = samplePoints[pixelIndex];
-        let x = pixelIndex % RESOLUTION;
-        let y = pixelIndex / RESOLUTION;
+    let input = samplePoints[pixelIndex];
+    let x = pixelIndex % RESOLUTION;
+    let y = pixelIndex / RESOLUTION;
 
-        if all(input.pos == vec3f(0)) {
-            textureStore(uImage, vec2u(x, y), vec4f(0, 0, 0.5, 1));
-            pixelIndex = pixelIndex + num_workgroups.x;
-            continue;
-        }
-
+    var indirect = uniforms.background;
+    if any(input.pos != vec3f(0)) {
+        let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
         let baseVecOffset = pixelIndex * embeddingVecSize;
 
         encodePosition(input.pos, baseVecOffset);
         encodeDirection(input.dir, baseVecOffset);
-
-        let color = multiLayerPerceptron(baseVecOffset);
-
-        textureStore(uImage, vec2u(x, y), vec4f(color, 1.0));
-        pixelIndex = pixelIndex + num_workgroups.x;
+        indirect = multiLayerPerceptron(baseVecOffset);
     }
+
+    var stored = uRadiance[pixelIndex];
+        stored.indirectSamples++;
+        stored.indirect += (indirect - stored.indirect)
+            * 1.0f
+            / f32(stored.indirectSamples);
+    uRadiance[pixelIndex] = stored;
+
+    var c: vec3f;
+    switch uniforms.mode {
+        case 0, default: { c = (stored.direct + stored.indirect) / 2; }
+        case 1: { c = stored.direct; }
+        case 2: { c = stored.indirect; }
+    }
+    textureStore(uImage, vec2u(x, y), vec4f(c, 1.0));
+    return;
 }

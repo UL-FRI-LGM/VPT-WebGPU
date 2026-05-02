@@ -114,6 +114,12 @@ export class RadianceFieldNetwork {
             0,
             dirTableOffsetsArray,
         );
+
+        this.uniformsBuffer = this.device.createBuffer({
+            label: "radiance field network uniforms",
+            size: 16, // vec3f background + u32 mode
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
     }
 
     _initializeModelBuffers() {
@@ -217,6 +223,7 @@ export class RadianceFieldNetwork {
                 { binding: 1, resource: { buffer: this.dirGridSizes } },
                 { binding: 2, resource: { buffer: this.posTableOffsets } },
                 { binding: 3, resource: { buffer: this.dirTableOffsets } },
+                { binding: 4, resource: { buffer: this.uniformsBuffer } },
             ],
         });
 
@@ -244,21 +251,22 @@ export class RadianceFieldNetwork {
         });
     }
 
-    _createForwardPassBindGroup(samplePoints, imageView) {
+    _createForwardPassBindGroup(samplePoints, radianceBuffer, imageView) {
         return this.device.createBindGroup({
             label: "radiance field network forward pass bind group",
             layout: this.pipeline.getBindGroupLayout(2),
             entries: [
                 { binding: 0, resource: { buffer: samplePoints } },
+                { binding: 1, resource: { buffer: radianceBuffer } },
                 { binding: 2, resource: { buffer: this.embeddingsBuffer } },
                 { binding: 3, resource: imageView },
             ],
         });
     }
 
-    forward(samplePoints, imageView, doneCallback) {
+    forward(samplePoints, radianceBuffer, imageView, doneCallback) {
         const forwardPassBindGroup =
-            this._createForwardPassBindGroup(samplePoints, imageView);
+            this._createForwardPassBindGroup(samplePoints, radianceBuffer, imageView);
 
         const encoder = this.device.createCommandEncoder();
         const pass = encoder.beginComputePass();
@@ -273,8 +281,8 @@ export class RadianceFieldNetwork {
         this.device.queue.onSubmittedWorkDone().then(doneCallback);
     }
 
-    dispatchForward(pass, samplePoints, imageView) {
-        const forwardPassBindGroup = this._createForwardPassBindGroup(samplePoints, imageView);
+    dispatchForward(pass, samplePoints, radianceBuffer, imageView) {
+        const forwardPassBindGroup = this._createForwardPassBindGroup(samplePoints, radianceBuffer, imageView);
         pass.setPipeline(this.pipeline);
         pass.setBindGroup(0, this.uniformsBindGroup);
         pass.setBindGroup(1, this.modelBindGroup);
@@ -291,6 +299,16 @@ export class RadianceFieldNetwork {
         return parameters;
     }
 
+    updateUniforms(background, mode) {
+        const data = new ArrayBuffer(16);
+        const view = new DataView(data);
+        view.setFloat32(0, background[0], true);
+        view.setFloat32(4, background[1], true);
+        view.setFloat32(8, background[2], true);
+        view.setUint32(12, mode, true);
+        this.device.queue.writeBuffer(this.uniformsBuffer, 0, data);
+    }
+
     destroyBuffers() {
         this.positionTables.destroy();
         this.directionTables.destroy();
@@ -300,6 +318,7 @@ export class RadianceFieldNetwork {
         this.dirGridSizes.destroy();
         this.posTableOffsets.destroy();
         this.dirTableOffsets.destroy();
+        this.uniformsBuffer.destroy();
         this.outputTexture.destroy();
         this.embeddingsBuffer.destroy();
     }

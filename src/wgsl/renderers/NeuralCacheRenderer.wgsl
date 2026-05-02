@@ -413,17 +413,15 @@ fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
     for (var sample: u32 = 0; sample < uniforms.samples; sample++) {
         var ray = createRay(screenPosition, &state);
 
-        for (var step: u32 = 0; step < uniforms.steps; step++) {
+        for (var step: u32 = 0; step < uniforms.steps && ray.bounces < 2; step++) {
             let dist: f32 = randomExponential(&state, uniforms.extinction);
             ray.position += dist * ray.direction;
 
             let volumeSample: vec4f = sampleVolumeColor(ray.position);
 
             let PNull = 1.0 - volumeSample.a;
-            let PScattering = select(
-                0, volumeSample.a * max3(volumeSample.rgb),
-                ray.bounces < 1u
-            );
+            // We assume uniforms.bounces >= 2
+            let PScattering = volumeSample.a * max3(volumeSample.rgb);
             let PAbsorption = 1.0 - PNull - PScattering;
 
             let fortuneWheel: f32 = randomUniform(&state);
@@ -432,11 +430,15 @@ fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
                 let radiance: vec3f = ray.transmittance * envSample.rgb;
 
                 if (ray.bounces == 0) {
+                    let radiance = uniforms.background;
                     acc.directSamples++;
                     acc.direct += (radiance - acc.direct) / f32(acc.directSamples);
                 } else if (ray.bounces == 1) {
                     acc.directSamples++;
                     acc.direct += (radiance - acc.direct) / f32(acc.directSamples);
+                    if (sample == 0) {
+                        indirectSample = getIndirectRadiance(ray, vec3f(0.0));
+                    }
                 }
 
                 break;
@@ -454,14 +456,8 @@ fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
                 ray.direction = sampleHenyeyGreenstein(&state, uniforms.anisotropy, ray.direction);
                 ray.bounces++;
 
-                if (ray.bounces == 1) {
-                    ray.firstBouncePos = ray.position;
-                    ray.firstBounceDir = ray.direction;
-
-                    if (sample == 0) {
-                        indirectSample = getIndirectRadiance(ray, vec3f(0.0));
-                    }
-                }
+                ray.firstBouncePos = ray.position;
+                ray.firstBounceDir = ray.direction;
             }
         }
     }
@@ -474,7 +470,7 @@ fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
             / f32(stored.directSamples);
     }
     stored.outOfBounds = acc.outOfBounds;
-    // uRadiance[globalIndex] = stored;
+    uRadiance[globalIndex] = stored;
 
     uSamplePoints[globalIndex] = SamplePoint(
         indirectSample.position,

@@ -173,7 +173,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
                 if (value && this._modelStale) {
                     this.trainServerSend("model-request");
-                } else if (!value) {
+                } if (!value || value && !this._modelStale) {
                     this.reset();
                 }
             }
@@ -463,6 +463,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                                 res.fcBiasesData,
                             );
                             this._modelStale = false;
+                            this.reset();
                         },
                     );
                     break;
@@ -693,9 +694,20 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         // NN forward — writes directly to render buffer
         const nnPass = encoder.beginComputePass();
+        const hex = this.background;
+        const modeIndex = ["global", "direct", "indirect"].indexOf(this.mode);
+        this._model.updateUniforms(
+            [
+                parseInt(hex.slice(1, 3), 16) / 255,
+                parseInt(hex.slice(3, 5), 16) / 255,
+                parseInt(hex.slice(5, 7), 16) / 255,
+            ],
+            modeIndex,
+        );
         this._model.dispatchForward(
             nnPass,
             this._samplePointsBuffer,
+            this._radianceBuffer,
             this._renderBuffer.getAttachments()[0].texture.createView(),
         );
         nnPass.end();
