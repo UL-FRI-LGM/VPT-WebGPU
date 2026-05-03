@@ -10,9 +10,11 @@ override HIDDEN_DIM: u32;
 override POS_FIRST_HASH_LEVEL: u32;
 override DIR_FIRST_HASH_LEVEL: u32;
 
+const PI: f32 = 3.14159265359;
+
 struct Uniforms {
     background: vec3f,
-    mode: u32,
+    samples: u32,
 };
 
 // Uniforms
@@ -33,7 +35,8 @@ struct Uniforms {
 // Input and output
 struct SamplePoint {
     pos: vec3f,
-    dir: vec2f,
+    dir: vec3f,
+    scatter: f32,
 };
 
 struct Radiance {
@@ -48,8 +51,6 @@ struct Radiance {
 @group(2) @binding(1) var<storage, read_write> uRadiance: array<Radiance>;
 
 @group(2) @binding(2) var<storage, read_write> embeddingsVec4: array<vec4f>;
-
-@group(2) @binding(3) var uImage: texture_storage_2d<rgba16float, write>;
 
 fn encodePosition(position: vec3f, baseVecOffset: u32) {
     for (var level = 0u; level < POS_FIRST_HASH_LEVEL; level++) {
@@ -278,33 +279,43 @@ fn forward(
         return;
     }
 
-    let input = samplePoints[pixelIndex];
-    let x = pixelIndex % RESOLUTION;
-    let y = pixelIndex / RESOLUTION;
+    var totalRadiance = vec3f(0);
+    var validSamples = 0u;
 
-    var indirect = uniforms.background;
-    if any(input.pos != vec3f(0)) {
-        let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
-        let baseVecOffset = pixelIndex * embeddingVecSize;
+    for (var s = 0u; s < uniforms.samples; s++) {
+        let sp = samplePoints[pixelIndex * uniforms.samples + s];
 
-        encodePosition(input.pos, baseVecOffset);
-        encodeDirection(input.dir, baseVecOffset);
-        indirect = multiLayerPerceptron(baseVecOffset);
+        if all(sp.pos == vec3f(2, 2, 2)) {
+            totalRadiance += uniforms.background;
+            validSamples++;
+        } else if any(sp.pos != vec3f(0)) {
+            let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
+            let baseVecOffset = pixelIndex * embeddingVecSize;
+
+            let dir = sp.dir;
+            let azimuth = sign(dir.y) * acos(dir.x
+                / sqrt(pow(dir.x, 2) + pow(dir.y, 2)));
+            let elevation = acos(dir.z);
+            let dirSpherical = vec2f(
+                (azimuth + PI) / (2.01 * PI),
+                elevation / PI,
+            );
+
+            encodePosition(sp.pos, baseVecOffset);
+            encodeDirection(dirSpherical, baseVecOffset);
+            let indirect = multiLayerPerceptron(baseVecOffset);
+
+            totalRadiance += sp.scatter * indirect;
+            validSamples++;
+        }
     }
 
-    var stored = uRadiance[pixelIndex];
-        stored.indirectSamples++;
-        stored.indirect += (indirect - stored.indirect)
-            * 1.0f
+    if validSamples > 0 {
+        var stored = uRadiance[pixelIndex];
+        stored.indirectSamples += validSamples;
+        stored.indirect += (totalRadiance / f32(validSamples) - stored.indirect)
+            * f32(validSamples)
             / f32(stored.indirectSamples);
-    uRadiance[pixelIndex] = stored;
-
-    var c: vec3f;
-    switch uniforms.mode {
-        case 0, default: { c = (stored.direct + stored.indirect) / 2; }
-        case 1: { c = stored.direct; }
-        case 2: { c = stored.indirect; }
+        uRadiance[pixelIndex] = stored;
     }
-    textureStore(uImage, vec2u(x, y), vec4f(c, 1.0));
-    return;
 }

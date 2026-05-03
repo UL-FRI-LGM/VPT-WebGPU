@@ -117,7 +117,7 @@ export class RadianceFieldNetwork {
 
         this.uniformsBuffer = this.device.createBuffer({
             label: "radiance field network uniforms",
-            size: 16, // vec3f background + u32 mode
+            size: 16, // vec3f background + u32 samples
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
     }
@@ -251,7 +251,7 @@ export class RadianceFieldNetwork {
         });
     }
 
-    _createForwardPassBindGroup(samplePoints, radianceBuffer, imageView) {
+    _createForwardPassBindGroup(samplePoints, radianceBuffer) {
         return this.device.createBindGroup({
             label: "radiance field network forward pass bind group",
             layout: this.pipeline.getBindGroupLayout(2),
@@ -259,14 +259,13 @@ export class RadianceFieldNetwork {
                 { binding: 0, resource: { buffer: samplePoints } },
                 { binding: 1, resource: { buffer: radianceBuffer } },
                 { binding: 2, resource: { buffer: this.embeddingsBuffer } },
-                { binding: 3, resource: imageView },
             ],
         });
     }
 
-    forward(samplePoints, radianceBuffer, imageView, doneCallback) {
+    forward(samplePoints, radianceBuffer, doneCallback) {
         const forwardPassBindGroup =
-            this._createForwardPassBindGroup(samplePoints, radianceBuffer, imageView);
+            this._createForwardPassBindGroup(samplePoints, radianceBuffer);
 
         const encoder = this.device.createCommandEncoder();
         const pass = encoder.beginComputePass();
@@ -281,8 +280,8 @@ export class RadianceFieldNetwork {
         this.device.queue.onSubmittedWorkDone().then(doneCallback);
     }
 
-    dispatchForward(pass, samplePoints, radianceBuffer, imageView) {
-        const forwardPassBindGroup = this._createForwardPassBindGroup(samplePoints, radianceBuffer, imageView);
+    dispatchForward(pass, samplePoints, radianceBuffer) {
+        const forwardPassBindGroup = this._createForwardPassBindGroup(samplePoints, radianceBuffer);
         pass.setPipeline(this.pipeline);
         pass.setBindGroup(0, this.uniformsBindGroup);
         pass.setBindGroup(1, this.modelBindGroup);
@@ -299,13 +298,13 @@ export class RadianceFieldNetwork {
         return parameters;
     }
 
-    updateUniforms(background, mode) {
+    updateUniforms(background, samples) {
         const data = new ArrayBuffer(16);
         const view = new DataView(data);
         view.setFloat32(0, background[0], true);
         view.setFloat32(4, background[1], true);
         view.setFloat32(8, background[2], true);
-        view.setUint32(12, mode, true);
+        view.setUint32(12, samples, true);
         this.device.queue.writeBuffer(this.uniformsBuffer, 0, data);
     }
 

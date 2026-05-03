@@ -5,7 +5,7 @@ import { PerspectiveCamera } from "../PerspectiveCamera.js";
 import { CameraPresetAnimator } from "../animators/CameraPresetAnimator.js";
 import { parseModelWeights } from "../nn/model_utils.js";
 import { RadianceFieldNetwork } from "../nn/radiance_field_network.js";
-import { resetFrame, renderFrame } from "./neural_cache_pipelines.js";
+import { resetFrame, renderFrame, neuralRender } from "./neural_cache_pipelines.js";
 
 const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
@@ -343,7 +343,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
             const startTime = performance.now();
             if (this.predict && this._model && !this._modelStale) {
-                // TODO: neural inference pass (later)
+                this._model.updateUniforms(
+                    this._parseHexColor(this.background), this.samples);
+                neuralRender(this);
             } else {
                 renderFrame(this);
             }
@@ -770,6 +772,14 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         });
     }
 
+    _parseHexColor(hex) {
+        return [
+            parseInt(hex.slice(1, 3), 16) / 255,
+            parseInt(hex.slice(3, 5), 16) / 255,
+            parseInt(hex.slice(5, 7), 16) / 255,
+        ];
+    }
+
     _updateUniforms() {
         // Compute MVP inverse matrix
         const modelMatrix = this._volume.modelMatrix;
@@ -803,12 +813,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         ]));
 
         // Parse hex color to RGB floats
-        const hex = this.background;
-        this._device.queue.writeBuffer(this._uniformBuffer, 112, new Float32Array([
-            parseInt(hex.slice(1, 3), 16) / 255, // red
-            parseInt(hex.slice(3, 5), 16) / 255, // green
-            parseInt(hex.slice(5, 7), 16) / 255, // blue
-        ]));
+        this._device.queue.writeBuffer(this._uniformBuffer, 112, new Float32Array(
+            this._parseHexColor(this.background),
+        ));
 
         this._device.queue.writeBuffer(this._uniformBuffer, 124, new Float32Array([
             this.filterSigma,
