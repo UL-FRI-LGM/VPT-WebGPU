@@ -5,6 +5,7 @@ import { PerspectiveCamera } from "../PerspectiveCamera.js";
 import { CameraPresetAnimator } from "../animators/CameraPresetAnimator.js";
 import { parseModelWeights } from "../nn/model_utils.js";
 import { RadianceFieldNetwork } from "../nn/radiance_field_network.js";
+import { resetFrame, renderFrame } from "./neural_cache_pipelines.js";
 
 const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
@@ -193,6 +194,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 this.reset();
             }
 
+            // Sample points buffer size depends on samples count
+            if (name === "samples") {
+                this._rebuildSamplePointsBuffer();
+            }
+
             // Reset NN when parameter affecting radiance changes
             if ([
                 "bounces",
@@ -274,18 +280,14 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         const commonCode = SHADERS.renderers.NeuralCache.common;
         const resetCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.reset;
-        const renderCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.render;
         const filterCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.filter;
         const neuralRenderCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.render + "\n" + SHADERS.renderers.NeuralCache.neuralRender;
+        const composeCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.compose;
 
         this._programs = {
             reset: device.createShaderModule({
                 label: "WebGPUNeuralCacheRenderer reset shader module",
                 code: resetCode,
-            }),
-            render: device.createShaderModule({
-                label: "WebGPUNeuralCacheRenderer render shader module",
-                code: renderCode,
             }),
             filter: device.createShaderModule({
                 label: "WebGPUNeuralCacheRenderer filter shader module",
@@ -294,6 +296,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             neuralRender: device.createShaderModule({
                 label: "WebGPUNeuralCacheRenderer neural render shader module",
                 code: neuralRenderCode,
+            }),
+            compose: device.createShaderModule({
+                label: "WebGPUNeuralCacheRenderer compose shader module",
+                code: composeCode,
             }),
         };
 
@@ -321,7 +327,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     reset() {
-        this._resetFrame();
+        this._updateUniforms();
+        resetFrame(this);
     }
 
     render() {
@@ -331,11 +338,21 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             if (!this.accumulate) {
                 this.reset();
             }
+
+            this._updateUniforms();
+
+            const startTime = performance.now();
             if (this.predict && this._model && !this._modelStale) {
-                this._neuralRender();
+                // TODO: neural inference pass (later)
             } else {
-                this._renderFrame();
+                renderFrame(this);
             }
+
+            this._device.queue.onSubmittedWorkDone().then(() => {
+                this._updateFPS(startTime, performance.now() - startTime);
+            });
+
+            this._processGroundTruth();
         }
     }
 
@@ -568,8 +585,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         });
 
         this._samplePointsBuffer = this._device.createBuffer({
-            label: "sample points buffer",
-            size: pixels * this.samplePointSize,
+            size: pixels * this.samples * this.samplePointSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
@@ -603,14 +619,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
         });
 
-        if (this._samplePointsBuffer) {
-            this._samplePointsBuffer.destroy();
+        if (this.samples !== undefined) {
+            this._rebuildSamplePointsBuffer();
         }
-        this._samplePointsBuffer = this._device.createBuffer({
-            label: "sample points buffer",
-            size: pixels * this.samplePointSize,
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
 
         this._stagingBufferMapped = false;
         this.clearGroundTruth();
@@ -622,6 +633,17 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         super._rebuildBuffers();
     }
 
+    _rebuildSamplePointsBuffer() {
+        const pixels = this._resolution * this._resolution;
+        if (this._samplePointsBuffer) {
+            this._samplePointsBuffer.destroy();
+        }
+        this._samplePointsBuffer = this._device.createBuffer({
+            size: pixels * this.samples * this.samplePointSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+    }
+
     _createPipeline() {
         this._resetPipeline = this._device.createComputePipeline({
             label: "WebGPUNeuralCacheRenderer reset pipeline",
@@ -629,19 +651,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             compute: {
                 module: this._programs.reset,
                 entryPoint: "reset",
-                constants: {
-                    WORKGROUP_SIZE_X: this._workgroup_size[0],
-                    WORKGROUP_SIZE_Y: this._workgroup_size[1],
-                },
-            },
-        });
-
-        this._renderPipeline = this._device.createComputePipeline({
-            label: "WebGPUNeuralCacheRenderer render pipeline",
-            layout: "auto",
-            compute: {
-                module: this._programs.render,
-                entryPoint: "render",
                 constants: {
                     WORKGROUP_SIZE_X: this._workgroup_size[0],
                     WORKGROUP_SIZE_Y: this._workgroup_size[1],
@@ -662,12 +671,51 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             },
         });
 
-        this._neuralRenderPipeline = this._device.createComputePipeline({
-            label: "WebGPUNeuralCacheRenderer neural render pipeline",
+        this._volumeSamplingPipeline = this._device.createComputePipeline({
+            label: "WebGPUNeuralCacheRenderer volume sampling pipeline",
             layout: "auto",
             compute: {
                 module: this._programs.neuralRender,
-                entryPoint: "neuralRender",
+                entryPoint: "volumeSampling",
+                constants: {
+                    WORKGROUP_SIZE_X: this._workgroup_size[0],
+                    WORKGROUP_SIZE_Y: this._workgroup_size[1],
+                },
+            },
+        });
+
+        this._directIlluminationPipeline = this._device.createComputePipeline({
+            label: "WebGPUNeuralCacheRenderer direct illumination pipeline",
+            layout: "auto",
+            compute: {
+                module: this._programs.neuralRender,
+                entryPoint: "directIllumination",
+                constants: {
+                    WORKGROUP_SIZE_X: this._workgroup_size[0],
+                    WORKGROUP_SIZE_Y: this._workgroup_size[1],
+                },
+            },
+        });
+
+        this._indirectIlluminationPipeline = this._device.createComputePipeline({
+            label: "WebGPUNeuralCacheRenderer indirect illumination pipeline",
+            layout: "auto",
+            compute: {
+                module: this._programs.neuralRender,
+                entryPoint: "indirectIllumination",
+                constants: {
+                    WORKGROUP_SIZE_X: this._workgroup_size[0],
+                    WORKGROUP_SIZE_Y: this._workgroup_size[1],
+                },
+            },
+        });
+
+        this._composePipeline = this._device.createComputePipeline({
+            label: "WebGPUNeuralCacheRenderer compose pipeline",
+            layout: "auto",
+            compute: {
+                module: this._programs.compose,
+                entryPoint: "compose",
                 constants: {
                     WORKGROUP_SIZE_X: this._workgroup_size[0],
                     WORKGROUP_SIZE_Y: this._workgroup_size[1],
@@ -676,143 +724,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         });
     }
 
-    _neuralRender() {
-        const startTime = performance.now();
-        this._updateUniforms();
-
-        const neuralRenderBindGroup = this._device.createBindGroup({
-            label: "WebGPUNeuralCacheRenderer neural render bind group",
-            layout: this._neuralRenderPipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this._uniformBuffer } },
-                { binding: 1, resource: { buffer: this._radianceBuffer } },
-                { binding: 3, resource: this._volume.getTexture().createView() },
-                { binding: 4, resource: this._volume.getTextureSampler() },
-                { binding: 5, resource: this._transferFunction.createView() },
-                { binding: 6, resource: this._transferFunctionSampler },
-                { binding: 7, resource: this._environment.texture.createView() },
-                { binding: 8, resource: this._environment.sampler },
-                { binding: 10, resource: { buffer: this._samplePointsBuffer } },
-            ],
-        });
-
-        const encoder = this._device.createCommandEncoder();
-
-        // Direct-only path tracing + sample point capture
-        const neuralPass = encoder.beginComputePass();
-        neuralPass.setPipeline(this._neuralRenderPipeline);
-        neuralPass.setBindGroup(0, neuralRenderBindGroup);
-        neuralPass.dispatchWorkgroups(...this._getWorkgroupCount());
-        neuralPass.end();
-
-        // NN forward — writes directly to render buffer
-        const nnPass = encoder.beginComputePass();
-        const hex = this.background;
-        const modeIndex = ["global", "direct", "indirect"].indexOf(this.mode);
-        this._model.updateUniforms(
-            [
-                parseInt(hex.slice(1, 3), 16) / 255,
-                parseInt(hex.slice(3, 5), 16) / 255,
-                parseInt(hex.slice(5, 7), 16) / 255,
-            ],
-            modeIndex,
-        );
-        this._model.dispatchForward(
-            nnPass,
-            this._samplePointsBuffer,
-            this._radianceBuffer,
-            this._renderBuffer.getAttachments()[0].texture.createView(),
-        );
-        nnPass.end();
-
-        this._device.queue.submit([encoder.finish()]);
-
-        this._device.queue.onSubmittedWorkDone().then(() => {
-            const frameTime = performance.now() - startTime;
-            this._updateFPS(startTime, frameTime);
-        });
-    }
-
-    _resetFrame() {
-        this._updateUniforms();
-
-        const bindGroup = this._device.createBindGroup({
-            label: "WebGPUNeuralCacheRenderer reset bind group",
-            layout: this._resetPipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this._uniformBuffer } },
-                { binding: 1, resource: { buffer: this._radianceBuffer } },
-                { binding: 2, resource: this._renderBuffer.getAttachments()[0].texture.createView() },
-            ],
-        });
-
-        const encoder = this._device.createCommandEncoder();
-        const pass = encoder.beginComputePass();
-        pass.setPipeline(this._resetPipeline);
-        pass.setBindGroup(0, bindGroup);
-        pass.dispatchWorkgroups(...this._getWorkgroupCount());
-        pass.end();
-        this._device.queue.submit([encoder.finish()]);
-    }
-
-    _renderFrame() {
-        const startTime = performance.now();
-
-        this._updateUniforms();
-
-        const bindGroup = this._device.createBindGroup({
-            label: "WebGPUNeuralCacheRenderer render bind group",
-            layout: this._renderPipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this._uniformBuffer } },
-                { binding: 1, resource: { buffer: this._radianceBuffer } },
-                { binding: 2, resource: this._renderBuffer.getAttachments()[0].texture.createView() },
-                { binding: 3, resource: this._volume.getTexture().createView() },
-                { binding: 4, resource: this._volume.getTextureSampler() },
-                { binding: 5, resource: this._transferFunction.createView() },
-                { binding: 6, resource: this._transferFunctionSampler },
-                { binding: 7, resource: this._environment.texture.createView() },
-                { binding: 8, resource: this._environment.sampler },
-                { binding: 9, resource: { buffer: this._groundTruthBuffer } },
-            ],
-        });
-
-        const encoder = this._device.createCommandEncoder();
-
-        // Path tracing
-        const pass = encoder.beginComputePass();
-        pass.setPipeline(this._renderPipeline);
-        pass.setBindGroup(0, bindGroup);
-        pass.dispatchWorkgroups(...this._getWorkgroupCount());
-        pass.end();
-
-        // Bilateral filter
-        if (this.filterEnabled) {
-            const filterBindGroup = this._device.createBindGroup({
-                label: "WebGPUNeuralCacheRenderer filter bind group",
-                layout: this._filterPipeline.getBindGroupLayout(0),
-                entries: [
-                    { binding: 0, resource: { buffer: this._uniformBuffer } },
-                    { binding: 1, resource: { buffer: this._radianceBuffer } },
-                    { binding: 2, resource: this._renderBuffer.getAttachments()[0].texture.createView() },
-                    { binding: 9, resource: this._groundTruthBuffer }
-                ],
-            });
-
-            const filterPass = encoder.beginComputePass();
-            filterPass.setPipeline(this._filterPipeline);
-            filterPass.setBindGroup(0, filterBindGroup);
-            filterPass.dispatchWorkgroups(...this._getWorkgroupCount());
-            filterPass.end();
-        }
-
-        this._device.queue.submit([encoder.finish()]);
-
-        this._device.queue.onSubmittedWorkDone().then(() => {
-            const frameTime = performance.now() - startTime;
-            this._updateFPS(startTime, frameTime);
-        });
-
+    _processGroundTruth() {
         const downloadData = this.store && this._groundTruthBytes < this.groundTruthMaxBytes;
         const sendData = this.serverConnected && this.train;
 
@@ -820,7 +732,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             return;
         }
 
-        // Copy ground truth data
         const copyEncoder = this._device.createCommandEncoder();
         copyEncoder.copyBufferToBuffer(
             this._groundTruthBuffer, 0,
@@ -840,7 +751,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     + this._groundTruthFrames.toString().padStart(4, "0")
                     + ".bin",
                     data.slice().buffer,
-
                 );
                 this._groundTruthBytes += data.byteLength;
 
@@ -934,13 +844,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this.dispatchEvent(new CustomEvent("change", {
             detail: { name: "fps", value: this._fps }
         }));
-    }
-
-    _getWorkgroupCount() {
-        return [
-            Math.ceil(this._resolution / this._workgroup_size[0]),
-            Math.ceil(this._resolution / this._workgroup_size[1]),
-        ];
     }
 
     _getParameters() {

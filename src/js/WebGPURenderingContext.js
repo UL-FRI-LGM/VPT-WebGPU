@@ -66,6 +66,8 @@ async initWebGPU() {
     this.device = await this.adapter.requestDevice({
         requiredLimits: {
             maxStorageBuffersPerShaderStage: 12,
+            maxStorageBufferBindingSize: 512 * 1024 * 1024,
+            maxBufferSize: 512 * 1024 * 1024,
         },
     });
     const device = this.device;

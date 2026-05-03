@@ -95,11 +95,6 @@ struct IndirectRadiance {
     value: vec3f,
 };
 
-struct SamplePoint {
-    pos: vec3f,
-    dir: vec2f,
-};
-
 @group(0) @binding(3) var uVolume: texture_3d<f32>;
 @group(0) @binding(4) var uVolumeSampler: sampler;
 @group(0) @binding(5) var uTransferFunction: texture_2d<f32>;
@@ -236,8 +231,6 @@ fn render(@builtin(global_invocation_id) globalId: vec3u) {
     uGroundTruth[baseIndex + 6] = indirectRadiance.value.y;
     uGroundTruth[baseIndex + 7] = indirectRadiance.value.z;
 
-    let c = getDisplayColor(stored);
-    textureStore(uImage, globalId.xy, vec4f(c, 1.0));
 }
 
 fn getIndirectRadiance(ray: Ray, radiance: vec3f) -> IndirectRadiance {
@@ -389,7 +382,224 @@ fn createRay(screenPosition: vec2f, state: ptr<function, u32>) -> Ray {
 
 // #part /wgsl/shaders/renderers/NeuralCache/neuralRender
 
+struct SamplePoint {
+    pos: vec3f,
+    dir: vec3f,
+};
+
 @group(0) @binding(10) var<storage, read_write> uSamplePoints: array<SamplePoint>;
+
+@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
+fn volumeSampling(@builtin(global_invocation_id) globalId: vec3u) {
+    let res = vec2u(uniforms.resolution);
+    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uRadiance)) { return; }
+
+    let screenPosition: vec2f = computeScreenPosition(globalId.xy);
+    var state: u32 = hash3(vec3u(globalId.x, globalId.y, uniforms.randSeed));
+
+    for (var s: u32 = 0; s < uniforms.samples; s++) {
+        var sample = SamplePoint(vec3f(0), vec3f(0));
+        var ray = createRay(screenPosition, &state);
+
+        for (var step: u32 = 0; step < uniforms.steps; step++) {
+            let dist: f32 = randomExponential(&state, uniforms.extinction);
+            ray.position += dist * ray.direction;
+
+            if (any(ray.position > vec3f(1.0)) || any(ray.position < vec3f(0.0))) {
+                // Mark out of bounds ray
+                sample.pos = vec3f(2, 2, 2);
+                break;
+            }
+
+            let volumeSample: vec4f = sampleVolumeColor(ray.position);
+            let PNull = 1.0 - volumeSample.a;
+            let PScattering = volumeSample.a * max3(volumeSample.rgb);
+            let PAbsorption = 1.0 - PNull - PScattering;
+
+            let fortuneWheel: f32 = randomUniform(&state);
+            if (fortuneWheel < PAbsorption) {
+                break;
+            } else if (fortuneWheel < PAbsorption + PScattering) {
+                sample.pos = ray.position;
+                sample.dir = ray.direction;
+                break;
+            }
+        }
+
+        uSamplePoints[globalIndex * uniforms.samples + s] = sample;
+    }
+}
+
+@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
+fn directIllumination(@builtin(global_invocation_id) globalId: vec3u) {
+    let res = vec2u(uniforms.resolution);
+    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uRadiance)) { return; }
+
+    var state: u32 = hash3(vec3u(globalId.x, globalId.y, uniforms.randSeed + 1u));
+    var totalRadiance = vec3f(0.0);
+    var validSamples: u32 = 0u;
+
+    for (var s: u32 = 0u; s < uniforms.samples; s++) {
+        let sp = uSamplePoints[globalIndex * uniforms.samples + s];
+
+        if all(sp.pos == vec3f(0)) {
+            continue;
+        } else if all(sp.pos == vec3f(2, 2, 2)) {
+            totalRadiance += uniforms.background;
+            validSamples++;
+            continue;
+        }
+
+        var ray: Ray;
+        ray.position = sp.pos;
+        ray.direction = sampleHenyeyGreenstein(&state, uniforms.anisotropy, sp.dir);
+        ray.transmittance = sampleVolumeColor(ray.position).rgb;
+
+        var contribution = vec3f(0.0);
+
+        for (var step: u32 = 0u; step < uniforms.steps; step++) {
+            let dist: f32 = randomExponential(&state, uniforms.extinction);
+            ray.position += dist * ray.direction;
+
+            let volumeSample: vec4f = sampleVolumeColor(ray.position);
+            let PNull = 1.0 - volumeSample.a;
+            // Assume uniforms.bounces >= 2
+            let PScattering = volumeSample.a * max3(volumeSample.rgb);
+            let PAbsorption = 1.0 - PNull - PScattering;
+
+            let fortuneWheel: f32 = randomUniform(&state);
+            if (any(ray.position > vec3f(1.0)) || any(ray.position < vec3f(0.0))) {
+                let envSample: vec4f = sampleEnvironmentMap(ray.direction);
+                contribution = ray.transmittance * envSample.rgb;
+                validSamples++;
+                break;
+            } else if (fortuneWheel < PAbsorption) {
+                validSamples++;
+                break;
+            } else if (fortuneWheel < PAbsorption + PScattering) {
+                break;
+            }
+        }
+
+        totalRadiance += contribution;
+    }
+
+    var stored = uRadiance[globalIndex];
+    if (validSamples > 0) {
+        stored.directSamples += validSamples;
+        stored.direct += (totalRadiance / f32(validSamples) - stored.direct)
+            * f32(validSamples)
+            / f32(stored.directSamples);
+    }
+    uRadiance[globalIndex] = stored;
+}
+
+@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
+fn indirectIllumination(@builtin(global_invocation_id) globalId: vec3u) {
+    let res = vec2u(uniforms.resolution);
+    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uRadiance)) { return; }
+
+    var state: u32 = hash3(vec3u(globalId.x, globalId.y, uniforms.randSeed + 2u));
+    var totalRadiance = vec3f(0.0);
+    var validSamples: u32 = 0u;
+    var saved = false;
+    var indirectRadiance = IndirectRadiance(vec3f(0), 0, 0, vec3f(0));
+    var outOfBoundsRays = 0u;
+    var outOfBounds: u32 = 1u;
+
+    for (var s: u32 = 0u; s < uniforms.samples; s++) {
+        let sp = uSamplePoints[globalIndex * uniforms.samples + s];
+
+        if all(sp.pos == vec3f(0)) {
+            continue;
+        } else if all(sp.pos == vec3f(2, 2, 2)) {
+            totalRadiance += uniforms.background;
+            validSamples++;
+            outOfBoundsRays++;
+            continue;
+        }
+
+        var ray: Ray;
+        ray.position = sp.pos;
+        ray.direction = sampleHenyeyGreenstein(&state, uniforms.anisotropy, sp.dir);
+        ray.transmittance = sampleVolumeColor(ray.position).rgb;
+        ray.bounces = 1u;
+        ray.firstBouncePos = sp.pos;
+        ray.firstBounceDir = ray.direction;
+
+        var contribution = vec3f(0.0);
+
+        for (var step: u32 = 0u; step < uniforms.steps; step++) {
+            let dist: f32 = randomExponential(&state, uniforms.extinction);
+            ray.position += dist * ray.direction;
+
+            let volumeSample: vec4f = sampleVolumeColor(ray.position);
+            let PNull = 1.0 - volumeSample.a;
+            let PScattering = select(
+                0, volumeSample.a * max3(volumeSample.rgb),
+                ray.bounces < uniforms.bounces
+            );
+            let PAbsorption = 1.0 - PNull - PScattering;
+
+            let fortuneWheel: f32 = randomUniform(&state);
+            if (any(ray.position > vec3f(1.0)) || any(ray.position < vec3f(0.0))) {
+                if (ray.bounces >= 2) {
+                    let envSample: vec4f = sampleEnvironmentMap(ray.direction);
+                    contribution = ray.transmittance * envSample.rgb;
+                    validSamples++;
+                    if (!saved && outOfBoundsRays == 0) {
+                        saved = true;
+                        indirectRadiance = getIndirectRadiance(ray, contribution);
+                        outOfBounds = 0;
+                    }
+                }
+                break;
+            } else if (fortuneWheel < PAbsorption) {
+                if (ray.bounces >= 2) {
+                    validSamples++;
+                    if (!saved && outOfBoundsRays == 0) {
+                        saved = true;
+                        indirectRadiance = getIndirectRadiance(ray, vec3f(0.0));
+                        outOfBounds = 0;
+                    }
+                }
+                break;
+            } else if (fortuneWheel < PAbsorption + PScattering) {
+                ray.transmittance *= volumeSample.rgb;
+                ray.direction = sampleHenyeyGreenstein(&state, uniforms.anisotropy, ray.direction);
+                ray.bounces++;
+            }
+        }
+
+        totalRadiance += contribution;
+    }
+
+    var stored = uRadiance[globalIndex];
+    if (validSamples > 0) {
+        stored.indirectSamples += validSamples;
+        stored.indirect += (totalRadiance / f32(validSamples) - stored.indirect)
+            * f32(validSamples)
+            / f32(stored.indirectSamples);
+    }
+    stored.outOfBounds = outOfBounds;
+    uRadiance[globalIndex] = stored;
+
+    let baseIndex = globalIndex * 8u;
+    uGroundTruth[baseIndex + 0] = indirectRadiance.position.x;
+    uGroundTruth[baseIndex + 1] = indirectRadiance.position.y;
+    uGroundTruth[baseIndex + 2] = indirectRadiance.position.z;
+    uGroundTruth[baseIndex + 3] = indirectRadiance.azimuth;
+    uGroundTruth[baseIndex + 4] = indirectRadiance.elevation;
+    uGroundTruth[baseIndex + 5] = indirectRadiance.value.x;
+    uGroundTruth[baseIndex + 6] = indirectRadiance.value.y;
+    uGroundTruth[baseIndex + 7] = indirectRadiance.value.z;
+}
 
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
 fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
@@ -474,9 +684,10 @@ fn neuralRender(@builtin(global_invocation_id) globalId: vec3u) {
 
     uSamplePoints[globalIndex] = SamplePoint(
         indirectSample.position,
-        vec2f(
+        vec3f(
             (indirectSample.azimuth + PI) / (2.01 * PI),
-            indirectSample.elevation / PI
+            indirectSample.elevation / PI,
+            0
         )
     );
 }
@@ -535,12 +746,29 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
     }
 
     if (sumWeight > 0.0) {
-        textureStore(uImage, globalId.xy, vec4f(sumColor / sumWeight, 1.0));
+        let filteredIndirect = sumIndirect / sumWeight;
+
+        var stored = uRadiance[globalIndex];
+        stored.indirect = filteredIndirect;
+        uRadiance[globalIndex] = stored;
 
         let baseIndex = globalIndex * 8u;
-        let filteredIndirect = sumIndirect / sumWeight;
         uGroundTruth[baseIndex + 5u] = filteredIndirect.x;
         uGroundTruth[baseIndex + 6u] = filteredIndirect.y;
         uGroundTruth[baseIndex + 7u] = filteredIndirect.z;
     }
+}
+
+// #part /wgsl/shaders/renderers/NeuralCache/compose
+
+@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
+fn compose(@builtin(global_invocation_id) globalId: vec3u) {
+    let res = vec2u(uniforms.resolution);
+    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uRadiance)) { return; }
+
+    let stored = uRadiance[globalIndex];
+    let c = getDisplayColor(stored);
+    textureStore(uImage, globalId.xy, vec4f(c, 1.0));
 }
