@@ -127,7 +127,7 @@ export class RadianceFieldNetwork {
 
         this.positionTables = this.device.createBuffer({
             label: "position encoding tables",
-            size: sizes. positionTablesSize,
+            size: sizes.positionTablesSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 

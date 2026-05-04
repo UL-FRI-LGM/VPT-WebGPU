@@ -3,9 +3,9 @@ import { mat4 } from "../../lib/gl-matrix-module.js";
 import { WebGPUAbstractComputeRenderer } from "./WebGPUAbstractComputeRenderer.js";
 import { PerspectiveCamera } from "../PerspectiveCamera.js";
 import { CameraPresetAnimator } from "../animators/CameraPresetAnimator.js";
-import { parseModelWeights } from "../nn/model_utils.js";
-import { RadianceFieldNetwork } from "../nn/radiance_field_network.js";
-import { resetFrame, renderFrame, neuralRender } from "./neural_cache_pipelines.js";
+import { parseModelWeights } from "../nn/ModelUtils.js";
+import { RadianceFieldNetwork } from "../nn/RadianceFieldNetwork.js";
+import { resetFrame, renderFrame, neuralRender } from "./NeuralCachePipelines.js";
 
 const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
@@ -129,28 +129,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 this._cameraPresetAnimator.setPreset(value);
                 this._cameraPresetAnimator.reset();
                 this.reset();
-            }
-
-            // During training we cannot accumulate with filtering because we
-            // are overwriting ground truth data because of easier implementation
-            if ((name === "filterEnabled" || name === "train") && bind) {
-                const accumulateBind = bind.closest("div")
-                    .querySelector('[bind="accumulate"]');
-                const shouldDisable = this.filterEnabled && this.train;
-
-                if (shouldDisable && accumulateBind) {
-                    accumulateBind.disabled = true;
-                    this._accumulateRestore = this.accumulate;
-                    accumulateBind.checked = false;
-                    this.accumulate = false;
-                } else if (!value && accumulateBind) {
-                    accumulateBind.disabled = false;
-                    if (this._accumulateRestore) {
-                        accumulateBind.checked = this._accumulateRestore;
-                        this.accumulate = this._accumulateRestore;
-                        this._accumulateRestore = undefined;
-                    }
-                }
             }
 
             if (name === "trainServer") {
@@ -281,8 +259,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         const commonCode = SHADERS.renderers.NeuralCache.common;
         const resetCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.reset;
         const filterCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.filter;
-        const neuralRenderCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.render + "\n" + SHADERS.renderers.NeuralCache.neuralRender;
-        const composeCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.compose;
+        const renderCode = commonCode + "\n" + SHADERS.renderers.NeuralCache.render;
 
         this._programs = {
             reset: device.createShaderModule({
@@ -293,13 +270,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 label: "WebGPUNeuralCacheRenderer filter shader module",
                 code: filterCode,
             }),
-            neuralRender: device.createShaderModule({
-                label: "WebGPUNeuralCacheRenderer neural render shader module",
-                code: neuralRenderCode,
-            }),
-            compose: device.createShaderModule({
-                label: "WebGPUNeuralCacheRenderer compose shader module",
-                code: composeCode,
+            render: device.createShaderModule({
+                label: "WebGPUNeuralCacheRenderer render shader module",
+                code: renderCode,
             }),
         };
 
@@ -443,7 +416,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     break;
                 case "model-created":
                     const modelArgs = json["model_args"];
-                    const shader = SHADERS.nn.radiance_field_network;
+                    const shader = SHADERS.nn.model;
                     if (this._model) {
                         this._model.destroyBuffers();
                     }
@@ -544,7 +517,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     }
 
     get radianceSize() {
-        return 48;
+        return 80;
     }
 
     // Packed 8 floats instead of a structure with padding
@@ -677,7 +650,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             label: "WebGPUNeuralCacheRenderer volume sampling pipeline",
             layout: "auto",
             compute: {
-                module: this._programs.neuralRender,
+                module: this._programs.render,
                 entryPoint: "volumeSampling",
                 constants: {
                     WORKGROUP_SIZE_X: this._workgroup_size[0],
@@ -690,7 +663,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             label: "WebGPUNeuralCacheRenderer direct illumination pipeline",
             layout: "auto",
             compute: {
-                module: this._programs.neuralRender,
+                module: this._programs.render,
                 entryPoint: "directIllumination",
                 constants: {
                     WORKGROUP_SIZE_X: this._workgroup_size[0],
@@ -703,7 +676,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             label: "WebGPUNeuralCacheRenderer indirect illumination pipeline",
             layout: "auto",
             compute: {
-                module: this._programs.neuralRender,
+                module: this._programs.render,
                 entryPoint: "indirectIllumination",
                 constants: {
                     WORKGROUP_SIZE_X: this._workgroup_size[0],
@@ -716,8 +689,21 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             label: "WebGPUNeuralCacheRenderer compose pipeline",
             layout: "auto",
             compute: {
-                module: this._programs.compose,
+                module: this._programs.render,
                 entryPoint: "compose",
+                constants: {
+                    WORKGROUP_SIZE_X: this._workgroup_size[0],
+                    WORKGROUP_SIZE_Y: this._workgroup_size[1],
+                },
+            },
+        });
+
+        this._accumulatePipeline = this._device.createComputePipeline({
+            label: "WebGPUNeuralCacheRenderer accumulate pipeline",
+            layout: "auto",
+            compute: {
+                module: this._programs.render,
+                entryPoint: "accumulate",
                 constants: {
                     WORKGROUP_SIZE_X: this._workgroup_size[0],
                     WORKGROUP_SIZE_Y: this._workgroup_size[1],

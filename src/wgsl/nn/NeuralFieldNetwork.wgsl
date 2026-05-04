@@ -1,4 +1,4 @@
-// #part /wgsl/shaders/nn/radiance_field_network
+// #part /wgsl/shaders/nn/model
 
 override WORKGROUP_SIZE: u32;
 override RESOLUTION: u32;
@@ -44,6 +44,10 @@ struct Radiance {
     directSamples: u32,
     indirect: vec3f,
     indirectSamples: u32,
+    frameDirect: vec3f,
+    frameDirectSamples: u32,
+    frameIndirect: vec3f,
+    frameIndirectSamples: u32,
     outOfBounds: u32,
 };
 
@@ -312,10 +316,8 @@ fn forward(
 
     if validSamples > 0 {
         var stored = uRadiance[pixelIndex];
-        stored.indirectSamples += validSamples;
-        stored.indirect += (totalRadiance / f32(validSamples) - stored.indirect)
-            * f32(validSamples)
-            / f32(stored.indirectSamples);
+        stored.frameIndirect = totalRadiance / f32(validSamples);
+        stored.frameIndirectSamples = validSamples;
         uRadiance[pixelIndex] = stored;
     }
 }

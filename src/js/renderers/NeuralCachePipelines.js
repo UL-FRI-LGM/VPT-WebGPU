@@ -1,3 +1,5 @@
+"use strict";
+
 function getWorkgroupCount(renderer) {
     return [
         Math.ceil(renderer._resolution / renderer._workgroup_size[0]),
@@ -58,7 +60,16 @@ function createCommonBindGroups(renderer) {
         ],
     });
 
-    return { volumeSamplingBindGroup, directIlluminationBindGroup, filterBindGroup, composeBindGroup };
+    const accumulateBindGroup = device.createBindGroup({
+        label: "WebGPUNeuralCacheRenderer accumulate bind group",
+        layout: renderer._accumulatePipeline.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: renderer._uniformBuffer } },
+            { binding: 1, resource: { buffer: renderer._radianceBuffer } },
+        ],
+    });
+
+    return { volumeSamplingBindGroup, directIlluminationBindGroup, filterBindGroup, composeBindGroup, accumulateBindGroup };
 }
 
 export function resetFrame(renderer) {
@@ -90,6 +101,7 @@ export function renderFrame(renderer) {
         directIlluminationBindGroup,
         filterBindGroup,
         composeBindGroup,
+        accumulateBindGroup,
     } = createCommonBindGroups(renderer);
 
     const indirectIlluminationBindGroup = device.createBindGroup({
@@ -108,8 +120,6 @@ export function renderFrame(renderer) {
             { binding: 10, resource: { buffer: renderer._samplePointsBuffer } },
         ],
     });
-
-    // -- Dispatch --
 
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
@@ -132,6 +142,10 @@ export function renderFrame(renderer) {
         pass.dispatchWorkgroups(...workgroupCount);
     }
 
+    pass.setPipeline(renderer._accumulatePipeline);
+    pass.setBindGroup(0, accumulateBindGroup);
+    pass.dispatchWorkgroups(...workgroupCount);
+
     pass.setPipeline(renderer._composePipeline);
     pass.setBindGroup(0, composeBindGroup);
     pass.dispatchWorkgroups(...workgroupCount);
@@ -149,9 +163,8 @@ export function neuralRender(renderer) {
         directIlluminationBindGroup,
         filterBindGroup,
         composeBindGroup,
+        accumulateBindGroup,
     } = createCommonBindGroups(renderer);
-
-    // -- Dispatch --
 
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
@@ -170,11 +183,9 @@ export function neuralRender(renderer) {
         renderer._radianceBuffer,
     );
 
-    if (renderer.filterEnabled) {
-        pass.setPipeline(renderer._filterPipeline);
-        pass.setBindGroup(0, filterBindGroup);
-        pass.dispatchWorkgroups(...workgroupCount);
-    }
+    pass.setPipeline(renderer._accumulatePipeline);
+    pass.setBindGroup(0, accumulateBindGroup);
+    pass.dispatchWorkgroups(...workgroupCount);
 
     pass.setPipeline(renderer._composePipeline);
     pass.setBindGroup(0, composeBindGroup);

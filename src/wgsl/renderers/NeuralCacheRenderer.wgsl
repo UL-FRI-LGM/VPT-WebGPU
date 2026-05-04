@@ -27,34 +27,22 @@ struct Uniforms {
 };
 
 struct Radiance {
+    // Accumulated (running average)
     direct: vec3f,
     directSamples: u32,
     indirect: vec3f,
     indirectSamples: u32,
+    // Per-frame (written by illumination, read by filter+accumulate)
+    frameDirect: vec3f,
+    frameDirectSamples: u32,
+    frameIndirect: vec3f,
+    frameIndirectSamples: u32,
     outOfBounds: u32,
 };
-
-fn getDisplayColor(radiance: Radiance) -> vec3f {
-    switch uniforms.mode {
-        case 0, default: {
-            let total = radiance.directSamples + radiance.indirectSamples;
-            let samples = f32(total);
-            return f32(radiance.directSamples) / samples * radiance.direct
-                + f32(radiance.indirectSamples) / samples * radiance.indirect;
-        }
-        case 1: {
-            return radiance.direct;
-        }
-        case 2: {
-            return radiance.indirect;
-        }
-    }
-}
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var<storage, read_write> uRadiance: array<Radiance>;
 @group(0) @binding(2) var uImage: texture_storage_2d<rgba16float, write>;
-
 @group(0) @binding(9) var<storage, read_write> uGroundTruth: array<f32>;
 
 // #part /wgsl/shaders/renderers/NeuralCache/reset
@@ -72,7 +60,13 @@ fn reset(@builtin(global_invocation_id) globalId: vec3u) {
         return;
     }
 
-    let radiance = Radiance(uniforms.background, 0, vec3f(0), 0, 0);
+    let radiance = Radiance(
+        uniforms.background, 0,
+        vec3f(0), 0,
+        vec3f(0), 0,
+        vec3f(0), 0,
+        0,
+    );
     uRadiance[globalIndex] = radiance;
     textureStore(uImage, globalId.xy, vec4f(uniforms.background, 1.0));
 }
@@ -95,12 +89,36 @@ struct IndirectRadiance {
     value: vec3f,
 };
 
+struct SamplePoint {
+    pos: vec3f,
+    dir: vec3f,
+    scatter: f32,
+};
+
 @group(0) @binding(3) var uVolume: texture_3d<f32>;
 @group(0) @binding(4) var uVolumeSampler: sampler;
 @group(0) @binding(5) var uTransferFunction: texture_2d<f32>;
 @group(0) @binding(6) var uTransferFunctionSampler: sampler;
 @group(0) @binding(7) var uEnvironment: texture_2d<f32>;
 @group(0) @binding(8) var uEnvironmentSampler: sampler;
+@group(0) @binding(10) var<storage, read_write> uSamplePoints: array<SamplePoint>;
+
+fn getDisplayColor(radiance: Radiance) -> vec3f {
+    switch uniforms.mode {
+        case 0, default: {
+            let total = radiance.directSamples + radiance.indirectSamples;
+            let samples = f32(total);
+            return f32(radiance.directSamples) / samples * radiance.direct
+                + f32(radiance.indirectSamples) / samples * radiance.indirect;
+        }
+        case 1: {
+            return radiance.direct;
+        }
+        case 2: {
+            return radiance.indirect;
+        }
+    }
+}
 
 fn getIndirectRadiance(ray: Ray, radiance: vec3f) -> IndirectRadiance {
     let azimuth = sign(ray.firstBounceDir.y) * acos(ray.firstBounceDir.x
@@ -249,16 +267,6 @@ fn createRay(screenPosition: vec2f, state: ptr<function, u32>) -> Ray {
     return ray;
 }
 
-// #part /wgsl/shaders/renderers/NeuralCache/neuralRender
-
-struct SamplePoint {
-    pos: vec3f,
-    dir: vec3f,
-    scatter: f32,
-};
-
-@group(0) @binding(10) var<storage, read_write> uSamplePoints: array<SamplePoint>;
-
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
 fn volumeSampling(@builtin(global_invocation_id) globalId: vec3u) {
     let res = vec2u(uniforms.resolution);
@@ -360,12 +368,8 @@ fn directIllumination(@builtin(global_invocation_id) globalId: vec3u) {
     }
 
     var stored = uRadiance[globalIndex];
-    if (validSamples > 0) {
-        stored.directSamples += validSamples;
-        stored.direct += (totalRadiance / f32(validSamples) - stored.direct)
-            * f32(validSamples)
-            / f32(stored.directSamples);
-    }
+    stored.frameDirect = totalRadiance / f32(max(validSamples, 1u));
+    stored.frameDirectSamples = validSamples;
     uRadiance[globalIndex] = stored;
 }
 
@@ -452,12 +456,8 @@ fn indirectIllumination(@builtin(global_invocation_id) globalId: vec3u) {
     }
 
     var stored = uRadiance[globalIndex];
-    if (validSamples > 0) {
-        stored.indirectSamples += validSamples;
-        stored.indirect += (totalRadiance / f32(validSamples) - stored.indirect)
-            * f32(validSamples)
-            / f32(stored.indirectSamples);
-    }
+    stored.frameIndirect = totalRadiance / f32(max(validSamples, 1u));
+    stored.frameIndirectSamples = validSamples;
     stored.outOfBounds = outOfBounds;
     uRadiance[globalIndex] = stored;
 
@@ -472,6 +472,39 @@ fn indirectIllumination(@builtin(global_invocation_id) globalId: vec3u) {
     uGroundTruth[baseIndex + 7] = indirectRadiance.value.z;
 }
 
+@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
+fn compose(@builtin(global_invocation_id) globalId: vec3u) {
+    let res = vec2u(uniforms.resolution);
+    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uRadiance)) { return; }
+
+    let stored = uRadiance[globalIndex];
+    let c = getDisplayColor(stored);
+    textureStore(uImage, globalId.xy, vec4f(c, 1.0));
+}
+
+@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
+fn accumulate(@builtin(global_invocation_id) globalId: vec3u) {
+    let res = vec2u(uniforms.resolution);
+    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
+    let globalIndex: u32 = globalId.x + globalId.y * res.x;
+    if (globalIndex >= arrayLength(&uRadiance)) { return; }
+
+    var stored = uRadiance[globalIndex];
+    if stored.frameDirectSamples > 0u {
+        stored.directSamples += stored.frameDirectSamples;
+        stored.direct += (stored.frameDirect - stored.direct)
+            * f32(stored.frameDirectSamples) / f32(stored.directSamples);
+    }
+    if stored.frameIndirectSamples > 0u {
+        stored.indirectSamples += stored.frameIndirectSamples;
+        stored.indirect += (stored.frameIndirect - stored.indirect)
+            * f32(stored.frameIndirectSamples) / f32(stored.indirectSamples);
+    }
+    uRadiance[globalIndex] = stored;
+}
+
 // #part /wgsl/shaders/renderers/NeuralCache/filter
 
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
@@ -484,10 +517,10 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
 
     let globalIndex = globalId.x + globalId.y * res.x;
     let center = uRadiance[globalIndex];
-    if center.outOfBounds == 1 {
+    if center.outOfBounds == 1 || center.frameDirectSamples == 0 || center.frameIndirectSamples == 0 {
         return;
     }
-    let centerColor = getDisplayColor(center);
+    let centerColor = center.frameDirect + center.frameIndirect;
 
     let sigma = uniforms.filterSigma;
     let kSigma = uniforms.filterKSigma;
@@ -496,7 +529,7 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
     let sigma2 = 2.0 * sigma * sigma;
     let threshold2 = 2.0 * threshold * threshold;
 
-    var sumColor = vec3f(0.0);
+    var sumDirect = vec3f(0.0);
     var sumIndirect = vec3f(0.0);
     var sumWeight = 0.0;
 
@@ -507,10 +540,10 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
             let nIndex = u32(nx) + u32(ny) * res.x;
 
             let neighbor = uRadiance[nIndex];
-            if neighbor.outOfBounds == 1 || neighbor.directSamples == 0 || neighbor.indirectSamples == 0 {
+            if neighbor.outOfBounds == 1 || neighbor.frameDirectSamples == 0 || neighbor.frameIndirectSamples == 0 {
                 continue;
             }
-            let neighborColor = getDisplayColor(neighbor);
+            let neighborColor = neighbor.frameDirect + neighbor.frameIndirect;
 
             let spatialDist = f32(dx * dx + dy * dy);
             let spatialWeight = exp(-spatialDist / sigma2);
@@ -519,36 +552,21 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
             let rangeWeight = exp(-dot(colorDiff, colorDiff) / threshold2);
 
             let weight = spatialWeight * rangeWeight;
-            sumColor += weight * neighborColor;
-            sumIndirect += weight * neighbor.indirect;
+            sumDirect += weight * neighbor.frameDirect;
+            sumIndirect += weight * neighbor.frameIndirect;
             sumWeight += weight;
         }
     }
 
     if (sumWeight > 0.0) {
-        let filteredIndirect = sumIndirect / sumWeight;
-
         var stored = uRadiance[globalIndex];
-        stored.indirect = filteredIndirect;
+        stored.frameDirect = sumDirect / sumWeight;
+        stored.frameIndirect = sumIndirect / sumWeight;
         uRadiance[globalIndex] = stored;
 
         let baseIndex = globalIndex * 8u;
-        uGroundTruth[baseIndex + 5u] = filteredIndirect.x;
-        uGroundTruth[baseIndex + 6u] = filteredIndirect.y;
-        uGroundTruth[baseIndex + 7u] = filteredIndirect.z;
+        uGroundTruth[baseIndex + 5u] = stored.frameIndirect.x;
+        uGroundTruth[baseIndex + 6u] = stored.frameIndirect.y;
+        uGroundTruth[baseIndex + 7u] = stored.frameIndirect.z;
     }
-}
-
-// #part /wgsl/shaders/renderers/NeuralCache/compose
-
-@compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
-fn compose(@builtin(global_invocation_id) globalId: vec3u) {
-    let res = vec2u(uniforms.resolution);
-    if (globalId.x >= res.x || globalId.y >= res.y) { return; }
-    let globalIndex: u32 = globalId.x + globalId.y * res.x;
-    if (globalIndex >= arrayLength(&uRadiance)) { return; }
-
-    let stored = uRadiance[globalIndex];
-    let c = getDisplayColor(stored);
-    textureStore(uImage, globalId.xy, vec4f(c, 1.0));
 }
