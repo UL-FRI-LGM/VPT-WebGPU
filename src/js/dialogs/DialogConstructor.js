@@ -48,6 +48,7 @@ static constructProperty(property) {
                 `<option value="${opt.value}" ${opt.value === property.value ? 'selected' : ''}>${opt.label}</option>`
             ).join('');
             return `<select bind="${property.name}">${options}</select>`;
+        case 'file-chooser': return `<ui-file-chooser bind="${property.name}"></ui-file-chooser>`;
         default: return `<div></div>`;
     }
 }

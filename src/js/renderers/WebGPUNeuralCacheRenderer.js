@@ -87,6 +87,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             },
             { name: "transform", buttonLabel: "Print camera transform", type: "button" },
 
+            { name: "modelFile", label: "Model file", type: "file-chooser", value: null },
             { name: "trainServer", label: "Training server", type: "text-input", value: "localhost:8001" },
             { name: "status", label: "Server status", type: "text", value: "Disconnected", color: "red" },
             { name: "ping", label: "Ping", type: "text", value: "0 ms" },
@@ -118,6 +119,48 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             const num = parseFloat(value);
             if (!isNaN(num)) {
                 this[name] = num;
+            }
+
+            if (name === "modelFile") {
+                const file = value[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    parseModelWeights(reader.result).then(res => {
+                        if (this._model) {
+                            this._model.destroyBuffers();
+                        }
+                        this._model = new RadianceFieldNetwork({
+                            device: this._device,
+                            modelArgs: res.metadata.model_args,
+                            resolution: this._resolution,
+                            shader: SHADERS.nn.model,
+                        });
+                        this._model.loadWeights(
+                            res.positionTablesData,
+                            res.directionTablesData,
+                            res.fcWeightsData,
+                            res.fcBiasesData,
+                        );
+                        this._modelStale = false;
+
+                        const predictBind = document.querySelector('[bind="predict"]');
+                        const trainBind = document.querySelector('[bind="train"]');
+                        if (predictBind) {
+                            predictBind.checked = true;
+                            predictBind.disabled = false;
+                        }
+                        if (trainBind) {
+                            this._trainRestore = trainBind.checked;
+                            trainBind.checked = false;
+                            trainBind.disabled = true;
+                            this.train = false;
+                        }
+
+                        this.reset();
+                    });
+                };
+                reader.readAsArrayBuffer(file);
             }
 
             if (name === "transferFunction") {
@@ -181,7 +224,6 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             if ([
                 "bounces",
                 "steps",
-                "extinction",
                 "anisotropy",
                 "transferFunction",
                 "filterEnabled",
