@@ -35,6 +35,7 @@ struct Uniforms {
 // Input and output
 struct SamplePoint {
     pos: vec3f,
+    state: u32,
     dir: vec3f,
     scatter: f32,
 };
@@ -289,10 +290,14 @@ fn forward(
     for (var s = 0u; s < uniforms.samples; s++) {
         let sp = samplePoints[pixelIndex * uniforms.samples + s];
 
+        var x: u32 = sp.state * 747796405u + 2891336453u;
+        x = ((x >> ((x >> 28u) + 4u)) ^ x) * 277803737u;
+        let coin = f32((x >> 22u) ^ x) / f32(~0u);
+
         if all(sp.pos == vec3f(2, 2, 2)) {
             totalRadiance += uniforms.background;
             validSamples++;
-        } else if any(sp.pos != vec3f(0)) {
+        } else if coin < sp.scatter && any(sp.pos != vec3f(0)) {
             let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
             let baseVecOffset = pixelIndex * embeddingVecSize;
 
@@ -309,7 +314,7 @@ fn forward(
             encodeDirection(dirSpherical, baseVecOffset);
             let indirect = multiLayerPerceptron(baseVecOffset);
 
-            totalRadiance += sp.scatter * indirect;
+            totalRadiance += indirect;
             validSamples++;
         }
     }

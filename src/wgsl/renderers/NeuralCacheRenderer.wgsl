@@ -91,6 +91,7 @@ struct IndirectRadiance {
 
 struct SamplePoint {
     pos: vec3f,
+    state: u32,
     dir: vec3f,
     scatter: f32,
 };
@@ -278,7 +279,7 @@ fn volumeSampling(@builtin(global_invocation_id) globalId: vec3u) {
     var state: u32 = hash3(vec3u(globalId.x, globalId.y, uniforms.randSeed));
 
     for (var s: u32 = 0; s < uniforms.samples; s++) {
-        var sample = SamplePoint(vec3f(0), vec3f(0), 0);
+        var sample = SamplePoint(vec3f(0), 0, vec3f(0), 0);
         var ray = createRay(screenPosition, &state);
 
         for (var step: u32 = 0; step < uniforms.steps; step++) {
@@ -297,12 +298,11 @@ fn volumeSampling(@builtin(global_invocation_id) globalId: vec3u) {
             let PAbsorption = 1.0 - PNull - PScattering;
 
             let fortuneWheel: f32 = randomUniform(&state);
-            if (fortuneWheel < PAbsorption) {
-                break;
-            } else if (fortuneWheel < PAbsorption + PScattering) {
+            if (fortuneWheel < PAbsorption + PScattering) {
                 sample.pos = ray.position;
                 sample.dir = ray.direction;
-                sample.scatter = PScattering;
+                sample.scatter = PScattering + PAbsorption;
+                sample.state = state;
                 break;
             }
         }
@@ -328,6 +328,7 @@ fn directIllumination(@builtin(global_invocation_id) globalId: vec3u) {
         if all(sp.pos == vec3f(0)) {
             continue;
         } else if all(sp.pos == vec3f(2, 2, 2)) {
+            // Out of bounds with bounces == 0
             totalRadiance += uniforms.background;
             validSamples++;
             continue;
@@ -394,6 +395,7 @@ fn indirectIllumination(@builtin(global_invocation_id) globalId: vec3u) {
         if all(sp.pos == vec3f(0)) {
             continue;
         } else if all(sp.pos == vec3f(2, 2, 2)) {
+            // Out of bounds with bounces == 0
             totalRadiance += uniforms.background;
             validSamples++;
             outOfBoundsRays++;
@@ -436,13 +438,11 @@ fn indirectIllumination(@builtin(global_invocation_id) globalId: vec3u) {
                 }
                 break;
             } else if (fortuneWheel < PAbsorption) {
-                if (ray.bounces >= 2) {
-                    validSamples++;
-                    if (!saved && outOfBoundsRays == 0) {
-                        saved = true;
-                        indirectRadiance = getIndirectRadiance(ray, vec3f(0.0));
-                        outOfBounds = 0;
-                    }
+                validSamples++;
+                if (!saved && outOfBoundsRays == 0) {
+                    saved = true;
+                    indirectRadiance = getIndirectRadiance(ray, vec3f(0.0));
+                    outOfBounds = 0;
                 }
                 break;
             } else if (fortuneWheel < PAbsorption + PScattering) {
