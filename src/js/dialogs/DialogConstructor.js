@@ -38,7 +38,7 @@ static constructProperty(property) {
             return `<div style="padding: 0 10px">${button}</div>`
         case 'button-row':
             const buttons = property.items.map(item =>
-                `<button type="button" data-action="${item.action}">${item.label}</button>`
+                `<button type="button" data-action="${item.action}"${item.hidden ? ' class="invisible"' : ''}>${item.label}</button>`
             ).join('');
             return `<div style="display: flex; gap: 5px; padding: 0 10px;">${buttons}</div>`;
         case 'text': return `<span style="display: inline-block;${property.color ? ` color: ${property.color};` : ''}" bind="${property.name}">${property.value}</span>`;

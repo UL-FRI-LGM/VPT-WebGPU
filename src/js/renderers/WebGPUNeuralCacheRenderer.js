@@ -6,6 +6,7 @@ import { CameraPresetAnimator } from "../animators/CameraPresetAnimator.js";
 import { parseModelWeights } from "../nn/ModelUtils.js";
 import { RadianceFieldNetwork } from "../nn/RadianceFieldNetwork.js";
 import { resetFrame, renderFrame, neuralRender } from "./NeuralCachePipelines.js";
+import { DOMUtils } from '../utils/DOMUtils.js';
 
 const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
@@ -99,7 +100,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 type: "button-row",
                 items: [
                     { action: "connect", label: "Connect" },
-                    { action: "disconnect", label: "Disconnect" },
+                    { action: "disconnect", label: "Disconnect", hidden: true },
                     { action: "reset", label: "Reset" },
                 ]
             },
@@ -383,6 +384,15 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         }));
     }
 
+    _updateConnectionButtons(connected) {
+        const connectBtn = document.querySelector('button[data-action="connect"]');
+        const disconnectBtn = document.querySelector('button[data-action="disconnect"]');
+        if (connectBtn && disconnectBtn) {
+            DOMUtils.toggle(connectBtn, !connected);
+            DOMUtils.toggle(disconnectBtn, connected);
+        }
+    }
+
     trainServerDisconnect() {
         if (this.websocket !== undefined) {
             this.websocket.close();
@@ -402,6 +412,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         this.serverConnected = false;
         this.trainingInProgress = false;
+        this._updateConnectionButtons(false);
         this.dispatchEvent(new CustomEvent("change", {
             detail: { name: "status", value: "Disconnected", color: "red" }
         }));
@@ -470,6 +481,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     });
                     this._modelStale = true;
                     this.serverConnected = true;
+                    this._updateConnectionButtons(true);
                     const predictBind = document.querySelector('[bind="predict"]');
                     if (predictBind) {
                         predictBind.disabled = false;
