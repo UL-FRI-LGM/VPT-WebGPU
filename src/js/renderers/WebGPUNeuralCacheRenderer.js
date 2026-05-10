@@ -3,7 +3,7 @@ import { mat4 } from "../../lib/gl-matrix-module.js";
 import { WebGPUAbstractComputeRenderer } from "./WebGPUAbstractComputeRenderer.js";
 import { PerspectiveCamera } from "../PerspectiveCamera.js";
 import { CameraPresetAnimator } from "../animators/CameraPresetAnimator.js";
-import { parseModelWeights } from "../nn/ModelUtils.js";
+import { parseModelWeights, loadModelFromFile } from "../nn/ModelUtils.js";
 import { RadianceFieldNetwork } from "../nn/RadianceFieldNetwork.js";
 import { resetFrame, renderFrame, neuralRender } from "./NeuralCachePipelines.js";
 import { DOMUtils } from '../utils/DOMUtils.js';
@@ -125,43 +125,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             if (name === "modelFile") {
                 const file = value[0];
                 if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                    parseModelWeights(reader.result).then(res => {
-                        if (this._model) {
-                            this._model.destroyBuffers();
-                        }
-                        this._model = new RadianceFieldNetwork({
-                            device: this._device,
-                            modelArgs: res.metadata.model_args,
-                            resolution: this._resolution,
-                            shader: SHADERS.nn.model,
-                        });
-                        this._model.loadWeights(
-                            res.positionTablesData,
-                            res.directionTablesData,
-                            res.fcWeightsData,
-                            res.fcBiasesData,
-                        );
-                        this._modelStale = false;
-
-                        const predictBind = document.querySelector('[bind="predict"]');
-                        const trainBind = document.querySelector('[bind="train"]');
-                        if (predictBind) {
-                            predictBind.checked = true;
-                            predictBind.disabled = false;
-                        }
-                        if (trainBind) {
-                            this._trainRestore = trainBind.checked;
-                            trainBind.checked = false;
-                            trainBind.disabled = true;
-                            this.train = false;
-                        }
-
-                        this.reset();
-                    });
-                };
-                reader.readAsArrayBuffer(file);
+                loadModelFromFile(file, this, SHADERS.nn.model);
             }
 
             if (name === "transferFunction") {
@@ -228,6 +192,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 "anisotropy",
                 "transferFunction",
                 "filterEnabled",
+                "extinction",
             ].includes(name)) {
                 this.trainServerSend("model-reset");
             }

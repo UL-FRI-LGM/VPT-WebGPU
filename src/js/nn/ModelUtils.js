@@ -1,10 +1,22 @@
 "use strict";
 
+import { RadianceFieldNetwork } from "./RadianceFieldNetwork.js";
+
 export async function parseModelWeights(arrayBuffer) {
     const zip = await JSZip.loadAsync(arrayBuffer);
 
     const metadataString = await zip.files["metadata.json"].async("string");
     const metadata = JSON.parse(metadataString);
+
+    let parameters = null;
+    if (zip.files["parameters.json"]) {
+        parameters = JSON.parse(await zip.files["parameters.json"].async("string"));
+    }
+
+    let transferFunction = null;
+    if (zip.files["transfer_function.json"]) {
+        transferFunction = JSON.parse(await zip.files["transfer_function.json"].async("string"));
+    }
 
     const positionTablesData = await readEncodingTables(
         zip, metadata, "position",
@@ -21,6 +33,8 @@ export async function parseModelWeights(arrayBuffer) {
         fcWeightsData,
         fcBiasesData,
         metadata,
+        parameters,
+        transferFunction,
     };
 }
 
@@ -94,4 +108,90 @@ function padBias(array) {
     const padded = new Float32Array(paddedLen);
     padded.set(array);
     return padded;
+}
+
+function applyParameters(renderer, parameters) {
+    const paramNames = [
+        "extinction", "anisotropy", "samples", "bounces", "steps",
+        "accumulate", "stochastic",
+        "filterEnabled", "filterSigma", "filterKSigma", "filterThreshold",
+    ];
+
+    for (const name of paramNames) {
+        if (parameters[name] === undefined) {
+            continue;
+        }
+        renderer[name] = parameters[name];
+
+        const el = document.querySelector(`[bind="${name}"]`);
+        if (!el) {
+            continue;
+        }
+
+        if (typeof parameters[name] === "boolean") {
+            el.checked = parameters[name];
+        } else {
+            el.value = parameters[name];
+        }
+    }
+
+    if (parameters.samples !== undefined) {
+        renderer._rebuildSamplePointsBuffer();
+    }
+}
+
+function applyTransferFunction(transferFunction) {
+    const tfElement = document.querySelector("ui-transfer-function");
+    if (!tfElement) {
+        return;
+    }
+
+    tfElement.bumps = transferFunction;
+    tfElement.render();
+    tfElement._rebuildHandles();
+    tfElement.dispatchEvent(new Event("change"));
+}
+
+export async function loadModelFromFile(file, renderer, shader) {
+    const arrayBuffer = await file.arrayBuffer();
+    const res = await parseModelWeights(arrayBuffer);
+
+    if (renderer._model) {
+        renderer._model.destroyBuffers();
+    }
+    renderer._model = new RadianceFieldNetwork({
+        device: renderer._device,
+        modelArgs: res.metadata.model_args,
+        resolution: renderer._resolution,
+        shader,
+    });
+    renderer._model.loadWeights(
+        res.positionTablesData,
+        res.directionTablesData,
+        res.fcWeightsData,
+        res.fcBiasesData,
+    );
+    renderer._modelStale = false;
+
+    if (res.parameters) {
+        applyParameters(renderer, res.parameters);
+    }
+    if (res.transferFunction) {
+        applyTransferFunction(res.transferFunction);
+    }
+
+    const predictBind = document.querySelector('[bind="predict"]');
+    const trainBind = document.querySelector('[bind="train"]');
+    if (predictBind) {
+        predictBind.checked = true;
+        predictBind.disabled = false;
+    }
+    if (trainBind) {
+        renderer._trainRestore = trainBind.checked;
+        trainBind.checked = false;
+        trainBind.disabled = true;
+        renderer.train = false;
+    }
+
+    renderer.reset();
 }
