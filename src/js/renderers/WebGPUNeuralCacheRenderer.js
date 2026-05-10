@@ -338,7 +338,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._groundTruthBuffer.destroy();
         this._stagingBuffer.destroy();
         this._samplePointsBuffer.destroy();
-        this.websocket.close();
+        if (this.websocket !== undefined) {
+            this.websocket.close();
+        }
         super.destroy();
     }
 

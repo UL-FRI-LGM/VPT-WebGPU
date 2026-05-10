@@ -37,7 +37,8 @@ struct Radiance {
     frameDirectSamples: u32,
     frameIndirect: vec3f,
     frameIndirectSamples: u32,
-    outOfBounds: u32,
+    outOfBoundsDirect: u32,
+    outOfBoundsIndirect: u32,
 };
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -65,7 +66,7 @@ fn reset(@builtin(global_invocation_id) globalId: vec3u) {
         vec3f(0), 0,
         vec3f(0), 0,
         vec3f(0), 0,
-        0,
+        0, 0,
     );
     uRadiance[globalIndex] = radiance;
     textureStore(uImage, globalId.xy, vec4f(uniforms.background, 1.0));
@@ -321,6 +322,7 @@ fn directIllumination(@builtin(global_invocation_id) globalId: vec3u) {
     var state: u32 = hash3(vec3u(globalId.x, globalId.y, uniforms.randSeed + 1u));
     var totalRadiance = vec3f(0.0);
     var validSamples: u32 = 0u;
+    var outOfBounds = 0u;
 
     for (var s: u32 = 0u; s < uniforms.samples; s++) {
         let sp = uSamplePoints[globalIndex * uniforms.samples + s];
@@ -331,6 +333,7 @@ fn directIllumination(@builtin(global_invocation_id) globalId: vec3u) {
             // Out of bounds with bounces == 0
             totalRadiance += uniforms.background;
             validSamples++;
+            outOfBounds = 1;
             continue;
         }
 
@@ -371,6 +374,8 @@ fn directIllumination(@builtin(global_invocation_id) globalId: vec3u) {
     var stored = uRadiance[globalIndex];
     stored.frameDirect = totalRadiance / f32(max(validSamples, 1u));
     stored.frameDirectSamples = validSamples;
+    stored.outOfBoundsDirect = outOfBounds;
+    stored.frameIndirectSamples = 0;
     uRadiance[globalIndex] = stored;
 }
 
@@ -458,7 +463,7 @@ fn indirectIllumination(@builtin(global_invocation_id) globalId: vec3u) {
     var stored = uRadiance[globalIndex];
     stored.frameIndirect = totalRadiance / f32(max(validSamples, 1u));
     stored.frameIndirectSamples = validSamples;
-    stored.outOfBounds = outOfBounds;
+    stored.outOfBoundsIndirect = outOfBounds;
     uRadiance[globalIndex] = stored;
 
     let baseIndex = globalIndex * 8u;
@@ -517,10 +522,9 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
 
     let globalIndex = globalId.x + globalId.y * res.x;
     let center = uRadiance[globalIndex];
-    if center.outOfBounds == 1 || center.frameDirectSamples == 0 || center.frameIndirectSamples == 0 {
-        return;
-    }
-    let centerColor = center.frameDirect + center.frameIndirect;
+
+    let centerDirect = center.frameDirect;
+    let centerIndirect = center.frameIndirect;
 
     let sigma = uniforms.filterSigma;
     let kSigma = uniforms.filterKSigma;
@@ -531,7 +535,8 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
 
     var sumDirect = vec3f(0.0);
     var sumIndirect = vec3f(0.0);
-    var sumWeight = 0.0;
+    var sumDirectWeight = 0.0;
+    var sumIndirectWeight = 0.0;
 
     for (var dy: i32 = -radius; dy <= radius; dy++) {
         for (var dx: i32 = -radius; dx <= radius; dx++) {
@@ -539,34 +544,45 @@ fn bilateralFilter(@builtin(global_invocation_id) globalId: vec3u) {
             let ny = clamp(i32(globalId.y) + dy, 0, i32(res.y) - 1);
             let nIndex = u32(nx) + u32(ny) * res.x;
 
-            let neighbor = uRadiance[nIndex];
-            if neighbor.outOfBounds == 1 || neighbor.frameDirectSamples == 0 || neighbor.frameIndirectSamples == 0 {
-                continue;
-            }
-            let neighborColor = neighbor.frameDirect + neighbor.frameIndirect;
-
             let spatialDist = f32(dx * dx + dy * dy);
             let spatialWeight = exp(-spatialDist / sigma2);
 
-            let colorDiff = neighborColor - centerColor;
-            let rangeWeight = exp(-dot(colorDiff, colorDiff) / threshold2);
+            let neighbor = uRadiance[nIndex];
 
-            let weight = spatialWeight * rangeWeight;
-            sumDirect += weight * neighbor.frameDirect;
-            sumIndirect += weight * neighbor.frameIndirect;
-            sumWeight += weight;
+            // Direct filtering
+            if neighbor.frameDirectSamples > 0 && neighbor.outOfBoundsDirect == 0 {
+                let neighborColor = neighbor.frameDirect;
+                let colorDiff = neighborColor - centerDirect;
+                let rangeWeight = exp(-dot(colorDiff, colorDiff) / threshold2);
+                let weight = spatialWeight * rangeWeight;
+                sumDirect += weight * neighbor.frameDirect;
+                sumDirectWeight += weight;
+            }
+
+            // Indirect filtering
+            if neighbor.frameIndirectSamples > 0 && neighbor.outOfBoundsIndirect == 0 {
+                let neighborColor = neighbor.frameIndirect;
+                let colorDiff = neighborColor - centerIndirect;
+                let rangeWeight = exp(-dot(colorDiff, colorDiff) / threshold2);
+                let weight = spatialWeight * rangeWeight;
+                sumIndirect += weight * neighbor.frameIndirect;
+                sumIndirectWeight += weight;
+            }
         }
     }
 
-    if (sumWeight > 0.0) {
-        var stored = uRadiance[globalIndex];
-        stored.frameDirect = sumDirect / sumWeight;
-        stored.frameIndirect = sumIndirect / sumWeight;
-        uRadiance[globalIndex] = stored;
+    var stored = uRadiance[globalIndex];
 
+    if sumDirectWeight > 0 && center.outOfBoundsDirect == 0 && center.frameDirectSamples > 0 {
+        stored.frameDirect = sumDirect / sumDirectWeight;
+    }
+    if sumIndirectWeight > 0 && center.outOfBoundsIndirect == 0 && center.frameIndirectSamples > 0 {
+        stored.frameIndirect = sumIndirect / sumIndirectWeight;
         let baseIndex = globalIndex * 8u;
         uGroundTruth[baseIndex + 5u] = stored.frameIndirect.x;
         uGroundTruth[baseIndex + 6u] = stored.frameIndirect.y;
         uGroundTruth[baseIndex + 7u] = stored.frameIndirect.z;
     }
+
+    uRadiance[globalIndex] = stored;
 }

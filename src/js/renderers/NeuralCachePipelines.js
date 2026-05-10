@@ -177,6 +177,12 @@ export function neuralRender(renderer) {
     pass.setBindGroup(0, directIlluminationBindGroup);
     pass.dispatchWorkgroups(...workgroupCount);
 
+    if (renderer.filterEnabled) {
+        pass.setPipeline(renderer._filterPipeline);
+        pass.setBindGroup(0, filterBindGroup);
+        pass.dispatchWorkgroups(...workgroupCount);
+    }
+
     renderer._model.dispatchForward(
         pass,
         renderer._samplePointsBuffer,
