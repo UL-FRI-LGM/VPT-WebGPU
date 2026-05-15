@@ -7,6 +7,7 @@ import { parseModelWeights, loadModelFromFile } from "../nn/ModelUtils.js";
 import { RadianceFieldNetwork } from "../nn/RadianceFieldNetwork.js";
 import { resetFrame, renderFrame, neuralRender } from "./NeuralCachePipelines.js";
 import { DOMUtils } from '../utils/DOMUtils.js';
+import { BenchmarkRunner } from '../utils/BenchmarkRunner.js';
 
 const [ SHADERS ] = await Promise.all([
     "shaders-wgsl.json",
@@ -109,6 +110,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             { name: "dataSize", label: "Data size", type: "text", value: "0 MB" },
             { name: "download", buttonLabel: "Download data", type: "button" },
 
+            { name: "experiments", label: "Experiments", type: "file-chooser", multiple: true },
+
             { name: "transferFunction", label: "Transfer function", type: "transfer-function", value: new Uint8Array(256) },
         ]);
 
@@ -126,6 +129,13 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 const file = value[0];
                 if (!file) return;
                 loadModelFromFile(file, this, SHADERS.nn.model);
+            }
+
+            if (name === "experiments") {
+                if (!value || value.length === 0) {
+                    return;
+                }
+                this._loadExperiments(value);
             }
 
             if (name === "transferFunction") {
@@ -875,6 +885,14 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             filterKSigma: this.filterKSigma,
             filterThreshold: this.filterThreshold,
         };
+    }
+
+    _loadExperiments(files) {
+        Promise.all(Array.from(files).map(f => f.text())).then(texts => {
+            const experiments = texts.map(t => JSON.parse(t));
+            const runner = new BenchmarkRunner(this, this.renderingContext);
+            runner.run(experiments);
+        });
     }
 
     setVolume(volume) {

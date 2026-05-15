@@ -110,7 +110,7 @@ function padBias(array) {
     return padded;
 }
 
-function applyParameters(renderer, parameters) {
+export function applyParameters(renderer, parameters) {
     const paramNames = [
         "extinction", "anisotropy", "samples", "bounces", "steps",
         "accumulate", "stochastic",
@@ -140,7 +140,7 @@ function applyParameters(renderer, parameters) {
     }
 }
 
-function applyTransferFunction(transferFunction) {
+export function applyTransferFunction(transferFunction) {
     const tfElement = document.querySelector("ui-transfer-function");
     if (!tfElement) {
         return;

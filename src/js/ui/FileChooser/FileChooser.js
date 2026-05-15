@@ -21,13 +21,23 @@ constructor() {
 }
 
 changeListener() {
-    if (this.binds.input.files.length > 0) {
-        const fileName = this.binds.input.files[0].name;
-        this.binds.label.textContent = fileName;
+    const files = this.binds.input.files;
+    if (files.length > 0) {
+        if (this.hasAttribute('multiple') && files.length > 1) {
+            this.binds.label.textContent = `${files.length} files selected`;
+        } else {
+            this.binds.label.textContent = files[0].name;
+        }
     } else {
         this.binds.label.textContent = '';
     }
     this.dispatchEvent(new Event('change'));
+}
+
+attributeChangedCallback(name, oldVal, newVal) {
+    if (name === 'multiple') {
+        this.binds.input.setAttribute('multiple', '');
+    }
 }
 
 clickListener() {
@@ -40,6 +50,10 @@ get files() {
 
 get value() {
     return this.files;
+}
+
+static get observedAttributes() {
+    return ['multiple'];
 }
 
 }

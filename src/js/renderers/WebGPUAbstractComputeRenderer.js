@@ -9,6 +9,7 @@ constructor(device, volume, camera, environment, options = {}) {
 
     this._resolution = options.resolution ?? 512;
     this._workgroup_size = options.workgroup_size ?? [8, 8];
+    this.renderingContext = options.renderingContext ?? null;
 
     this._device = device;
     this._volume = volume;

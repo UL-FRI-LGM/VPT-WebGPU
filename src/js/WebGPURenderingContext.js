@@ -65,9 +65,9 @@ async initWebGPU() {
     this.adapter = await navigator.gpu.requestAdapter();
     this.device = await this.adapter.requestDevice({
         requiredLimits: {
-            maxStorageBuffersPerShaderStage: 12,
-            maxStorageBufferBindingSize: 512 * 1024 * 1024,
-            maxBufferSize: 512 * 1024 * 1024,
+            maxStorageBuffersPerShaderStage: this.adapter.limits.maxStorageBuffersPerShaderStage,
+            maxStorageBufferBindingSize: this.adapter.limits.maxStorageBufferBindingSize,
+            maxBufferSize: this.adapter.limits.maxBufferSize,
         },
     });
     const device = this.device;
@@ -158,6 +158,7 @@ chooseRenderer(renderer) {
     this.renderer = new rendererClass(this.device, this.volume, this.camera, this.environment, {
         resolution: this.resolution,
         cameraAnimator: this.cameraAnimator,
+        renderingContext: this,
     });
     this.renderer.reset();
     if (this.toneMapper) {
