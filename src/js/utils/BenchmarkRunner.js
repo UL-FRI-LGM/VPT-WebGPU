@@ -28,11 +28,18 @@ export class BenchmarkRunner {
     async runExperiment(experiment) {
         if (this.isGroundTruth(experiment)) {
             await this.runGroundTruth(experiment);
+        } else if (this.isImageExperiment(experiment)) {
+            await this.runImageExperiment(experiment);
         }
     }
 
     isGroundTruth(experiment) {
         return experiment.radiance && !experiment.train_time && !experiment.benchmark_time;
+    }
+
+    isImageExperiment(experiment) {
+        return !!experiment.rendering_time && !experiment.radiance
+            && !experiment.train_time && !experiment.benchmark_time;
     }
 
     async runGroundTruth(experiment) {
@@ -48,6 +55,22 @@ export class BenchmarkRunner {
         await this.download(experiment);
 
         console.log(`[BenchmarkRunner] Completed ground truth: ${experiment.name}`);
+    }
+
+    async runImageExperiment(experiment) {
+        console.log(`[BenchmarkRunner] Starting image rendering: ${experiment.name}`);
+
+        await this.setup(experiment);
+        this.stop();
+        this.setCameraPreset(experiment.vpt_config.camera_preset);
+        this.play();
+
+        const durationMs = this.parseTime(experiment.rendering_time);
+        await this.waitForTime(durationMs);
+
+        await this.captureAndDownload(experiment);
+
+        console.log(`[BenchmarkRunner] Completed image rendering: ${experiment.name}`);
     }
 
     async setup(experiment) {
@@ -164,6 +187,57 @@ export class BenchmarkRunner {
         });
 
         const filename = experiment.radiance.split("/").reverse()[0];
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    parseTime(timeString) {
+        const match = timeString.match(/^(\d+)(ms|s|m)$/);
+        if (!match) {
+            throw new Error(`Cannot parse time: ${timeString}`);
+        }
+        const value = parseInt(match[1]);
+        const unit = match[2];
+        switch (unit) {
+            case 'ms': return value;
+            case 's':  return value * 1000;
+            case 'm':  return value * 60 * 1000;
+        }
+    }
+
+    async waitForTime(durationMs) {
+        return new Promise(resolve => setTimeout(resolve, durationMs));
+    }
+
+    async captureAndDownload(experiment) {
+        const canvas = this.renderingContext.canvas;
+
+        let blob = await new Promise(resolve => {
+            canvas.toBlob(blob => resolve(blob), "image/png");
+        });
+
+        if (!blob) {
+            const tmpCanvas = document.createElement("canvas");
+            tmpCanvas.width = canvas.width;
+            tmpCanvas.height = canvas.height;
+            const ctx = tmpCanvas.getContext("2d");
+            ctx.drawImage(canvas, 0, 0);
+            blob = await new Promise(resolve => {
+                tmpCanvas.toBlob(blob => resolve(blob), "image/png");
+            });
+        }
+
+        if (!blob) {
+            throw new Error("Failed to capture canvas as PNG");
+        }
+
+        const filename = `${experiment.name}.png`;
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;

@@ -85,6 +85,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     { value: "back", label: "Back" },
                     { value: "oscillate", label: "Oscillate" },
                     { value: "turntable", label: "Turntable" },
+                    { value: "head", label: "Head" },
+                    { value: "insides", label: "Insides" },
                 ]
             },
             { name: "transform", buttonLabel: "Print camera transform", type: "button" },
