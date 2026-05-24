@@ -44,6 +44,8 @@ struct Radiance {
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var<storage, read_write> uRadiance: array<Radiance>;
 @group(0) @binding(2) var uImage: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(11) var uImageDirect: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(12) var uImageIndirect: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(9) var<storage, read_write> uGroundTruth: array<f32>;
 
 // #part /wgsl/shaders/renderers/NeuralCache/reset
@@ -70,6 +72,8 @@ fn reset(@builtin(global_invocation_id) globalId: vec3u) {
     );
     uRadiance[globalIndex] = radiance;
     textureStore(uImage, globalId.xy, vec4f(uniforms.background, 1.0));
+    textureStore(uImageDirect, globalId.xy, vec4f(uniforms.background, 1.0));
+    textureStore(uImageIndirect, globalId.xy, vec4f(uniforms.background, 1.0));
 }
 
 // #part /wgsl/shaders/renderers/NeuralCache/render
@@ -487,6 +491,8 @@ fn compose(@builtin(global_invocation_id) globalId: vec3u) {
     let stored = uRadiance[globalIndex];
     let c = getDisplayColor(stored);
     textureStore(uImage, globalId.xy, vec4f(c, 1.0));
+    textureStore(uImageDirect, globalId.xy, vec4f(stored.direct, 1.0));
+    textureStore(uImageIndirect, globalId.xy, vec4f(stored.indirect, 1.0));
 }
 
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)

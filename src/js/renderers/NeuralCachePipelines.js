@@ -57,6 +57,8 @@ function createCommonBindGroups(renderer) {
             { binding: 0, resource: { buffer: renderer._uniformBuffer } },
             { binding: 1, resource: { buffer: renderer._radianceBuffer } },
             { binding: 2, resource: renderer._renderBuffer.getAttachments()[0].texture.createView() },
+            { binding: 11, resource: renderer._directTexture.createView() },
+            { binding: 12, resource: renderer._indirectTexture.createView() },
         ],
     });
 
@@ -80,6 +82,8 @@ export function resetFrame(renderer) {
             { binding: 0, resource: { buffer: renderer._uniformBuffer } },
             { binding: 1, resource: { buffer: renderer._radianceBuffer } },
             { binding: 2, resource: renderer._renderBuffer.getAttachments()[0].texture.createView() },
+            { binding: 11, resource: renderer._directTexture.createView() },
+            { binding: 12, resource: renderer._indirectTexture.createView() },
         ],
     });
 

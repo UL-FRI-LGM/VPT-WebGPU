@@ -225,6 +225,11 @@ render() {
     pass.draw(3);
     pass.end();
     device.queue.submit([encoder.finish()]);
+
+    if (typeof this.renderer.blitLayerCanvases === 'function') {
+        this.renderer.blitLayerCanvases();
+        this.toneMapper.setTexture(this.renderer.getTexture(), this.renderer.getTextureSampler());
+    }
 }
 
 get resolution() {

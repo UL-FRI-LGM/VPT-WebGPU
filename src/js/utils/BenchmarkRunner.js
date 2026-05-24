@@ -63,12 +63,20 @@ export class BenchmarkRunner {
         await this.setup(experiment);
         this.stop();
         this.setCameraPreset(experiment.vpt_config.camera_preset);
+        this.renderer.mode = "global";
+        const modeEl = document.querySelector('[bind="mode"]');
+        if (modeEl) {
+            modeEl.value = "global";
+        }
         this.play();
 
         const durationMs = this.parseTime(experiment.rendering_time);
         await this.waitForTime(durationMs);
 
-        await this.captureAndDownload(experiment);
+        const displayModes = experiment.display_modes || ["global"];
+        for (const mode of displayModes) {
+            await this.captureAndDownload(experiment, mode);
+        }
 
         console.log(`[BenchmarkRunner] Completed image rendering: ${experiment.name}`);
     }
@@ -114,9 +122,17 @@ export class BenchmarkRunner {
     }
 
     applyConfig(config) {
-        const { camera_preset, background, ...parameters } = config;
+        const { camera_preset, background, resolution, ...parameters } = config;
 
         applyParameters(this.renderer, parameters);
+
+        if (resolution) {
+            this.renderingContext.resolution = resolution;
+            const el = document.querySelector('[bind="resolution"]');
+            if (el) {
+                el.value = resolution;
+            }
+        }
 
         if (background) {
             this.renderer.background = background;
@@ -205,9 +221,9 @@ export class BenchmarkRunner {
         const value = parseInt(match[1]);
         const unit = match[2];
         switch (unit) {
-            case 'ms': return value;
-            case 's':  return value * 1000;
-            case 'm':  return value * 60 * 1000;
+            case "ms": return value;
+            case "s":  return value * 1000;
+            case "m":  return value * 60 * 1000;
         }
     }
 
@@ -215,8 +231,13 @@ export class BenchmarkRunner {
         return new Promise(resolve => setTimeout(resolve, durationMs));
     }
 
-    async captureAndDownload(experiment) {
-        const canvas = this.renderingContext.canvas;
+    async captureAndDownload(experiment, mode) {
+        const canvasMap = {
+            "global": this.renderingContext.canvas,
+            "direct": this.renderer.directCanvas,
+            "indirect": this.renderer.indirectCanvas,
+        };
+        const canvas = canvasMap[mode];
 
         let blob = await new Promise(resolve => {
             canvas.toBlob(blob => resolve(blob), "image/png");
@@ -237,7 +258,7 @@ export class BenchmarkRunner {
             throw new Error("Failed to capture canvas as PNG");
         }
 
-        const filename = `${experiment.name}.png`;
+        const filename = `${experiment.name}_${mode}.png`;
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;

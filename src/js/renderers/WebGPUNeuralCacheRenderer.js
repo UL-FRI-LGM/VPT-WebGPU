@@ -18,6 +18,18 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     constructor(device, volume, camera, environment, options = {}) {
         super(device, volume, camera, environment, options);
 
+        this._directCanvas = document.createElement('canvas');
+        this._directCanvas.width = this._resolution;
+        this._directCanvas.height = this._resolution;
+        this._directCanvasContext = this._directCanvas.getContext("webgpu");
+        this._directCanvasContext.configure({ device, format: navigator.gpu.getPreferredCanvasFormat() });
+
+        this._indirectCanvas = document.createElement('canvas');
+        this._indirectCanvas.width = this._resolution;
+        this._indirectCanvas.height = this._resolution;
+        this._indirectCanvasContext = this._indirectCanvas.getContext("webgpu");
+        this._indirectCanvasContext.configure({ device, format: navigator.gpu.getPreferredCanvasFormat() });
+
         this._playing = true;
         this._frameTimes = [];
         this._groundTruthBytes = 0;
@@ -315,6 +327,18 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._groundTruthBuffer.destroy();
         this._stagingBuffer.destroy();
         this._samplePointsBuffer.destroy();
+        if (this._directTexture) {
+            this._directTexture.destroy();
+        }
+        if (this._directSampler) {
+            this._directSampler.destroy();
+        }
+        if (this._indirectTexture) {
+            this._indirectTexture.destroy();
+        }
+        if (this._indirectSampler) {
+            this._indirectSampler.destroy();
+        }
         if (this.websocket !== undefined) {
             this.websocket.close();
         }
@@ -638,6 +662,37 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             this._model.setResolution(this._resolution);
         }
 
+
+        if (this._directTexture) {
+            this._directTexture.destroy();
+        }
+        this._directTexture = this._device.createTexture({
+            size: [this._resolution, this._resolution],
+            format: "rgba16float",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
+        });
+        this._directSampler = this._device.createSampler({
+            addressModeU: "clamp-to-edge",
+            addressModeV: "clamp-to-edge",
+            magFilter: "nearest",
+            minFilter: "nearest",
+        });
+
+        if (this._indirectTexture) {
+            this._indirectTexture.destroy();
+        }
+        this._indirectTexture = this._device.createTexture({
+            size: [this._resolution, this._resolution],
+            format: "rgba16float",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
+        });
+        this._indirectSampler = this._device.createSampler({
+            addressModeU: "clamp-to-edge",
+            addressModeV: "clamp-to-edge",
+            magFilter: "nearest",
+            minFilter: "nearest",
+        });
+
         super._rebuildBuffers();
     }
 
@@ -900,5 +955,69 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     setVolume(volume) {
         super.setVolume(volume);
         this._cameraPresetAnimator.volume = volume;
+    }
+
+    getDirectTexture() {
+        return this._directTexture;
+    }
+
+    getDirectTextureSampler() {
+        return this._directSampler;
+    }
+
+    getIndirectTexture() {
+        return this._indirectTexture;
+    }
+
+    getIndirectTextureSampler() {
+        return this._indirectSampler;
+    }
+
+    get directCanvas() {
+        return this._directCanvas;
+    }
+
+    get indirectCanvas() {
+        return this._indirectCanvas;
+    }
+
+    blitLayerCanvases() {
+        const ctx = this.renderingContext;
+        const toneMapper = ctx.toneMapper;
+        const pipeline = ctx.pipeline;
+        const device = ctx.device;
+
+        const layers = [
+            { texture: this._directTexture, sampler: this._directSampler, context: this._directCanvasContext },
+            { texture: this._indirectTexture, sampler: this._indirectSampler, context: this._indirectCanvasContext },
+        ];
+
+        for (const layer of layers) {
+            toneMapper.setTexture(layer.texture, layer.sampler);
+            toneMapper.render();
+
+            const bindGroup = device.createBindGroup({
+                layout: pipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: toneMapper.getTexture().createView() },
+                    { binding: 1, resource: toneMapper.getTextureSampler() },
+                ]
+            });
+
+            const encoder = device.createCommandEncoder();
+            const pass = encoder.beginRenderPass({
+                colorAttachments: [{
+                    view: layer.context.getCurrentTexture().createView(),
+                    clearValue: [0.0, 0.0, 0.0, 1.0],
+                    loadOp: "clear",
+                    storeOp: "store"
+                }]
+            });
+            pass.setPipeline(pipeline);
+            pass.setBindGroup(0, bindGroup);
+            pass.draw(3);
+            pass.end();
+            device.queue.submit([encoder.finish()]);
+        }
     }
 }
