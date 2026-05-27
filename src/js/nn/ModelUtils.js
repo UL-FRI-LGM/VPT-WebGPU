@@ -195,3 +195,13 @@ export async function loadModelFromFile(file, renderer, shader) {
 
     renderer.reset();
 }
+
+export async function loadModelFromURL(url, renderer, shader) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch model from ${url}: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const file = new File([blob], "model.zip");
+    await loadModelFromFile(file, renderer, shader);
+}

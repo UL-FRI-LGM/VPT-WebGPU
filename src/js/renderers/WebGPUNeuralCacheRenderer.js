@@ -1,4 +1,5 @@
 import { mat4 } from "../../lib/gl-matrix-module.js";
+import { zipSync, strToU8 } from "../../lib/fflate-module.js";
 
 import { WebGPUAbstractComputeRenderer } from "./WebGPUAbstractComputeRenderer.js";
 import { PerspectiveCamera } from "../PerspectiveCamera.js";
@@ -32,9 +33,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         this._playing = true;
         this._frameTimes = [];
+        this._frameCount = 0;
         this._groundTruthBytes = 0;
         this._groundTruthFrames = 0;
-        this._groundTruthZip = new JSZip();
+        this._groundTruthZip = {};
         this._stagingBufferMapped = false;
 
         this._orbit = options.cameraAnimator;
@@ -99,6 +101,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     { value: "turntable", label: "Turntable" },
                     { value: "head", label: "Head" },
                     { value: "insides", label: "Insides" },
+                    { value: "front_heptane", label: "F Heptane" },
+                    { value: "turntable_heptane", label: "T Heptane" },
+                    { value: "front_neurons", label: "F Neurons" },
+                    { value: "turntable_neurons", label: "T Neurons" },
                 ]
             },
             { name: "transform", buttonLabel: "Print camera transform", type: "button" },
@@ -240,30 +246,23 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     break;
                 case "download":
                     // Store current parameters as a file
-                    this._groundTruthZip.file(
-                        "parameters.json",
-                        JSON.stringify(this._getParameters(), null, "    "),
-                    );
+                    this._groundTruthZip["parameters.json"] =
+                        strToU8(JSON.stringify(this._getParameters(), null, "    "));
 
                     // Store current transfer function as a file
-                    this._groundTruthZip.file(
-                        "transfer_function.json",
-                        JSON.stringify(this._transferFunctionBumps),
-                    );
+                    this._groundTruthZip["transfer_function.json"] =
+                        strToU8(JSON.stringify(this._transferFunctionBumps));
 
-                    this._groundTruthZip.generateAsync({
-                        type: "blob",
-                        compression: "DEFLATE",
-                    }).then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "ground_truth.zip";
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    });
+                    const zipped = zipSync(this._groundTruthZip);
+                    const blob = new Blob([zipped], { type: "application/zip" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "ground_truth.zip";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
                     break;
                 case "transform":
                     console.log(
@@ -310,6 +309,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
         this._createBuffers();
         this._createPipeline();
+        this._initTimestampQueries();
 
         this.serverConnected = false;
         this.trainingInProgress = false;
@@ -327,6 +327,15 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         this._groundTruthBuffer.destroy();
         this._stagingBuffer.destroy();
         this._samplePointsBuffer.destroy();
+        if (this._timestampQuerySet) {
+            this._timestampQuerySet.destroy();
+        }
+        if (this._timestampResolveBuffer) {
+            this._timestampResolveBuffer.destroy();
+        }
+        if (this._timestampStagingBuffer) {
+            this._timestampStagingBuffer.destroy();
+        }
         if (this._directTexture) {
             this._directTexture.destroy();
         }
@@ -352,6 +361,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
 
     render() {
         if (this._playing) {
+            this._frameCount++;
             this._cameraPresetAnimator.update();
 
             if (!this.accumulate) {
@@ -374,13 +384,14 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             });
 
             this._processGroundTruth();
+            this._processTimestamps();
         }
     }
 
     clearGroundTruth() {
         this._groundTruthBytes = 0;
         this._groundTruthFrames = 0;
-        this._groundTruthZip = new JSZip();
+        this._groundTruthZip = {};
         this._stagingBufferMapped = false;
         this.dispatchEvent(new CustomEvent("change", {
             detail: { name: "dataSize", value: "0 MB" }
@@ -822,12 +833,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             const data = new Float32Array(this._stagingBuffer.getMappedRange());
 
             if (downloadData) {
-                this._groundTruthZip.file(
+                this._groundTruthZip[
                     "indirect_radiance_"
                     + this._groundTruthFrames.toString().padStart(4, "0")
-                    + ".bin",
-                    data.slice().buffer,
-                );
+                    + ".bin"
+                ] = new Uint8Array(data.slice().buffer);
                 this._groundTruthBytes += data.byteLength;
 
                 const size = (this._groundTruthBytes / 1024 / 1024).toFixed(1);
@@ -844,6 +854,101 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
             this._stagingBuffer.unmap();
             this._stagingBufferMapped = false;
         });
+    }
+
+    _initTimestampQueries() {
+        const supported = this.renderingContext?.timestampQueriesSupported ?? false;
+        if (!supported) {
+            this._timestampQuerySet = null;
+            return;
+        }
+
+        const device = this._device;
+        const count = 12; // 6 stages × 2 (begin/end)
+
+        this._timestampQuerySet = device.createQuerySet({
+            type: 'timestamp',
+            count,
+        });
+
+        this._timestampResolveBuffer = device.createBuffer({
+            size: count * 8,
+            usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+        });
+
+        this._timestampStagingBuffer = device.createBuffer({
+            size: count * 8,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+
+        this._timestampStagingMapped = false;
+        this._filterDispatchedThisFrame = false;
+
+        this._stageTimeHistories = {
+            sampleGeneration: [],
+            directRadiance: [],
+            indirectRadiance: [],
+            filter: [],
+            accumulate: [],
+            compose: [],
+        };
+
+        this._stageSampleGeneration = 0;
+        this._stageDirectRadiance = 0;
+        this._stageIndirectRadiance = 0;
+        this._stageFilter = 0;
+        this._stageAccumulate = 0;
+        this._stageCompose = 0;
+    }
+
+    _processTimestamps() {
+        if (!this._timestampQuerySet || this._timestampStagingMapped) {
+            return;
+        }
+
+        this._timestampStagingMapped = true;
+
+        this._timestampStagingBuffer.mapAsync(GPUMapMode.READ).then(() => {
+            const data = new BigUint64Array(this._timestampStagingBuffer.getMappedRange());
+
+            const now = performance.now();
+            const stageTimes = [
+                Number(data[1] - data[0]) / 1e6,   // sample generation
+                Number(data[3] - data[2]) / 1e6,   // direct radiance
+                Number(data[5] - data[4]) / 1e6,   // indirect radiance
+                this._filterDispatchedThisFrame ? Number(data[7] - data[6]) / 1e6 : -1,
+                Number(data[9] - data[8]) / 1e6,   // accumulate
+                Number(data[11] - data[10]) / 1e6, // compose
+            ];
+
+            const stageKeys = [
+                'sampleGeneration', 'directRadiance', 'indirectRadiance',
+                'filter', 'accumulate', 'compose',
+            ];
+
+            for (let i = 0; i < 6; i++) {
+                const key = stageKeys[i];
+                if (stageTimes[i] < 0) continue; // filter not dispatched
+
+                this._stageTimeHistories[key].push({ start: now, time: stageTimes[i] });
+                this._stageTimeHistories[key] = this._stageTimeHistories[key].filter(t => now - t.start < 500);
+            }
+
+            this._stageSampleGeneration = this._average(this._stageTimeHistories.sampleGeneration);
+            this._stageDirectRadiance = this._average(this._stageTimeHistories.directRadiance);
+            this._stageIndirectRadiance = this._average(this._stageTimeHistories.indirectRadiance);
+            this._stageFilter = this._average(this._stageTimeHistories.filter);
+            this._stageAccumulate = this._average(this._stageTimeHistories.accumulate);
+            this._stageCompose = this._average(this._stageTimeHistories.compose);
+
+            this._timestampStagingBuffer.unmap();
+            this._timestampStagingMapped = false;
+        });
+    }
+
+    _average(history) {
+        if (history.length === 0) return 0;
+        return history.reduce((acc, t) => acc + t.time, 0) / history.length;
     }
 
     _parseHexColor(hex) {
@@ -947,7 +1052,7 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
     _loadExperiments(files) {
         Promise.all(Array.from(files).map(f => f.text())).then(texts => {
             const experiments = texts.map(t => JSON.parse(t));
-            const runner = new BenchmarkRunner(this, this.renderingContext);
+            const runner = new BenchmarkRunner(this, this.renderingContext, SHADERS.nn.model);
             runner.run(experiments);
         });
     }

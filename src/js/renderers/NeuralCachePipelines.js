@@ -7,6 +7,32 @@ function getWorkgroupCount(renderer) {
     ];
 }
 
+function timestampPassDescriptor(querySet, beginIndex, endIndex) {
+    if (!querySet) return {};
+    return {
+        timestampWrites: {
+            querySet,
+            beginningOfPassWriteIndex: beginIndex,
+            endOfPassWriteIndex: endIndex,
+        },
+    };
+}
+
+function resolveTimestamps(encoder, renderer) {
+    const querySet = renderer._timestampQuerySet;
+    if (!querySet || renderer._timestampStagingMapped) return;
+
+    encoder.resolveQuerySet(
+        querySet, 0, 12,
+        renderer._timestampResolveBuffer, 0
+    );
+    encoder.copyBufferToBuffer(
+        renderer._timestampResolveBuffer, 0,
+        renderer._timestampStagingBuffer, 0,
+        12 * 8
+    );
+}
+
 function createCommonBindGroups(renderer) {
     const device = renderer._device;
 
@@ -99,6 +125,7 @@ export function resetFrame(renderer) {
 export function renderFrame(renderer) {
     const device = renderer._device;
     const workgroupCount = getWorkgroupCount(renderer);
+    const querySet = renderer._timestampQuerySet;
 
     const {
         volumeSamplingBindGroup,
@@ -125,42 +152,56 @@ export function renderFrame(renderer) {
         ],
     });
 
+    renderer._filterDispatchedThisFrame = renderer.filterEnabled;
+
     const encoder = device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
 
-    pass.setPipeline(renderer._volumeSamplingPipeline);
-    pass.setBindGroup(0, volumeSamplingBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass1 = encoder.beginComputePass(timestampPassDescriptor(querySet, 0, 1));
+    pass1.setPipeline(renderer._volumeSamplingPipeline);
+    pass1.setBindGroup(0, volumeSamplingBindGroup);
+    pass1.dispatchWorkgroups(...workgroupCount);
+    pass1.end();
 
-    pass.setPipeline(renderer._directIlluminationPipeline);
-    pass.setBindGroup(0, directIlluminationBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass2 = encoder.beginComputePass(timestampPassDescriptor(querySet, 2, 3));
+    pass2.setPipeline(renderer._directIlluminationPipeline);
+    pass2.setBindGroup(0, directIlluminationBindGroup);
+    pass2.dispatchWorkgroups(...workgroupCount);
+    pass2.end();
 
-    pass.setPipeline(renderer._indirectIlluminationPipeline);
-    pass.setBindGroup(0, indirectIlluminationBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass3 = encoder.beginComputePass(timestampPassDescriptor(querySet, 4, 5));
+    pass3.setPipeline(renderer._indirectIlluminationPipeline);
+    pass3.setBindGroup(0, indirectIlluminationBindGroup);
+    pass3.dispatchWorkgroups(...workgroupCount);
+    pass3.end();
 
     if (renderer.filterEnabled) {
-        pass.setPipeline(renderer._filterPipeline);
-        pass.setBindGroup(0, filterBindGroup);
-        pass.dispatchWorkgroups(...workgroupCount);
+        const pass4 = encoder.beginComputePass(timestampPassDescriptor(querySet, 6, 7));
+        pass4.setPipeline(renderer._filterPipeline);
+        pass4.setBindGroup(0, filterBindGroup);
+        pass4.dispatchWorkgroups(...workgroupCount);
+        pass4.end();
     }
 
-    pass.setPipeline(renderer._accumulatePipeline);
-    pass.setBindGroup(0, accumulateBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass5 = encoder.beginComputePass(timestampPassDescriptor(querySet, 8, 9));
+    pass5.setPipeline(renderer._accumulatePipeline);
+    pass5.setBindGroup(0, accumulateBindGroup);
+    pass5.dispatchWorkgroups(...workgroupCount);
+    pass5.end();
 
-    pass.setPipeline(renderer._composePipeline);
-    pass.setBindGroup(0, composeBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass6 = encoder.beginComputePass(timestampPassDescriptor(querySet, 10, 11));
+    pass6.setPipeline(renderer._composePipeline);
+    pass6.setBindGroup(0, composeBindGroup);
+    pass6.dispatchWorkgroups(...workgroupCount);
+    pass6.end();
 
-    pass.end();
+    resolveTimestamps(encoder, renderer);
     device.queue.submit([encoder.finish()]);
 }
 
 export function neuralRender(renderer) {
     const device = renderer._device;
     const workgroupCount = getWorkgroupCount(renderer);
+    const querySet = renderer._timestampQuerySet;
 
     const {
         volumeSamplingBindGroup,
@@ -170,37 +211,50 @@ export function neuralRender(renderer) {
         accumulateBindGroup,
     } = createCommonBindGroups(renderer);
 
+    renderer._filterDispatchedThisFrame = renderer.filterEnabled;
+
     const encoder = device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
 
-    pass.setPipeline(renderer._volumeSamplingPipeline);
-    pass.setBindGroup(0, volumeSamplingBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass1 = encoder.beginComputePass(timestampPassDescriptor(querySet, 0, 1));
+    pass1.setPipeline(renderer._volumeSamplingPipeline);
+    pass1.setBindGroup(0, volumeSamplingBindGroup);
+    pass1.dispatchWorkgroups(...workgroupCount);
+    pass1.end();
 
-    pass.setPipeline(renderer._directIlluminationPipeline);
-    pass.setBindGroup(0, directIlluminationBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass2 = encoder.beginComputePass(timestampPassDescriptor(querySet, 2, 3));
+    pass2.setPipeline(renderer._directIlluminationPipeline);
+    pass2.setBindGroup(0, directIlluminationBindGroup);
+    pass2.dispatchWorkgroups(...workgroupCount);
+    pass2.end();
 
     if (renderer.filterEnabled) {
-        pass.setPipeline(renderer._filterPipeline);
-        pass.setBindGroup(0, filterBindGroup);
-        pass.dispatchWorkgroups(...workgroupCount);
+        const pass3 = encoder.beginComputePass(timestampPassDescriptor(querySet, 6, 7));
+        pass3.setPipeline(renderer._filterPipeline);
+        pass3.setBindGroup(0, filterBindGroup);
+        pass3.dispatchWorkgroups(...workgroupCount);
+        pass3.end();
     }
 
+    const pass4 = encoder.beginComputePass(timestampPassDescriptor(querySet, 4, 5));
     renderer._model.dispatchForward(
-        pass,
+        pass4,
         renderer._samplePointsBuffer,
         renderer._radianceBuffer,
     );
+    pass4.end();
 
-    pass.setPipeline(renderer._accumulatePipeline);
-    pass.setBindGroup(0, accumulateBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass5 = encoder.beginComputePass(timestampPassDescriptor(querySet, 8, 9));
+    pass5.setPipeline(renderer._accumulatePipeline);
+    pass5.setBindGroup(0, accumulateBindGroup);
+    pass5.dispatchWorkgroups(...workgroupCount);
+    pass5.end();
 
-    pass.setPipeline(renderer._composePipeline);
-    pass.setBindGroup(0, composeBindGroup);
-    pass.dispatchWorkgroups(...workgroupCount);
+    const pass6 = encoder.beginComputePass(timestampPassDescriptor(querySet, 10, 11));
+    pass6.setPipeline(renderer._composePipeline);
+    pass6.setBindGroup(0, composeBindGroup);
+    pass6.dispatchWorkgroups(...workgroupCount);
+    pass6.end();
 
-    pass.end();
+    resolveTimestamps(encoder, renderer);
     device.queue.submit([encoder.finish()]);
 }

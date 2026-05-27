@@ -63,7 +63,11 @@ async initWebGPU() {
     }
 
     this.adapter = await navigator.gpu.requestAdapter();
+
+    this.timestampQueriesSupported = this.adapter.features.has('timestamp-query');
+
     this.device = await this.adapter.requestDevice({
+        requiredFeatures: this.timestampQueriesSupported ? ['timestamp-query'] : [],
         requiredLimits: {
             maxStorageBuffersPerShaderStage: this.adapter.limits.maxStorageBuffersPerShaderStage,
             maxStorageBufferBindingSize: this.adapter.limits.maxStorageBufferBindingSize,

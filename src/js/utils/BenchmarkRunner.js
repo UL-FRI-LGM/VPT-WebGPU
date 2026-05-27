@@ -2,13 +2,15 @@
 
 import { BlobLoader } from "../loaders/BlobLoader.js";
 import { RAWReader } from "../readers/RAWReader.js";
-import { applyParameters, applyTransferFunction } from "../nn/ModelUtils.js";
+import { applyParameters, applyTransferFunction, loadModelFromURL } from "../nn/ModelUtils.js";
+import { Zip, ZipDeflate, strToU8 } from "../../lib/fflate-module.js";
 
 export class BenchmarkRunner {
 
-    constructor(renderer, renderingContext) {
+    constructor(renderer, renderingContext, shader) {
         this.renderer = renderer;
         this.renderingContext = renderingContext;
+        this.shader = shader;
     }
 
     async run(experiments) {
@@ -26,24 +28,15 @@ export class BenchmarkRunner {
     }
 
     async runExperiment(experiment) {
-        if (this.isGroundTruth(experiment)) {
-            await this.runGroundTruth(experiment);
-        } else if (this.isImageExperiment(experiment)) {
-            await this.runImageExperiment(experiment);
+        switch (experiment.type) {
+            case "model": await this.runModelExperiment(experiment); break;
+            case "image": await this.runImageExperiment(experiment); break;
+            case "performance": await this.runPerformanceExperiment(experiment); break;
         }
     }
 
-    isGroundTruth(experiment) {
-        return experiment.radiance && !experiment.train_time && !experiment.benchmark_time;
-    }
-
-    isImageExperiment(experiment) {
-        return !!experiment.rendering_time && !experiment.radiance
-            && !experiment.train_time && !experiment.benchmark_time;
-    }
-
-    async runGroundTruth(experiment) {
-        console.log(`[BenchmarkRunner] Starting ground truth: ${experiment.name}`);
+    async runModelExperiment(experiment) {
+        console.log(`[BenchmarkRunner] Starting model: ${experiment.name}`);
 
         await this.setup(experiment);
         this.stop();
@@ -54,7 +47,7 @@ export class BenchmarkRunner {
         this.renderer._playing = false;
         await this.download(experiment);
 
-        console.log(`[BenchmarkRunner] Completed ground truth: ${experiment.name}`);
+        console.log(`[BenchmarkRunner] Completed model: ${experiment.name}`);
     }
 
     async runImageExperiment(experiment) {
@@ -79,6 +72,86 @@ export class BenchmarkRunner {
         }
 
         console.log(`[BenchmarkRunner] Completed image rendering: ${experiment.name}`);
+    }
+
+    async runPerformanceExperiment(experiment) {
+        console.log(`[BenchmarkRunner] Starting performance: ${experiment.name}`);
+
+        if (experiment.model) {
+            const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
+            const response = await fetch(modelUrl, { method: "HEAD" });
+            if (!response.ok) {
+                console.log(`[BenchmarkRunner] Model not available, generating radiance: ${experiment.name}`);
+                await this.runModelExperiment(experiment);
+                return;
+            }
+        }
+
+        await this.setup(experiment);
+        this.stop();
+        this.setCameraPreset(experiment.vpt_config.camera_preset);
+
+        if (experiment.model) {
+            const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
+            await loadModelFromURL(modelUrl, this.renderer, this.shader);
+            this.renderer.predict = true;
+        }
+
+        const totalDurationMs = this.parseTime(experiment.benchmark_time);
+        const intervalMs = this.parseTime(experiment.interval);
+
+        this.renderer._frameCount = 0;
+        const metrics = [];
+        const startTime = performance.now();
+        let nextInterval = intervalMs;
+
+        this.play();
+
+        await new Promise(resolve => {
+            const timer = setInterval(() => {
+                const elapsed = performance.now() - startTime;
+
+                if (elapsed >= totalDurationMs) {
+                    clearInterval(timer);
+                    resolve();
+                    return;
+                }
+
+                if (elapsed < nextInterval) {
+                    return;
+                }
+                nextInterval += intervalMs;
+
+                const fps = parseFloat(this.renderer._fps) || 0;
+                const frameTime = parseFloat(this.renderer._frameTime) || 0;
+
+                const stageSample = this.renderer._stageSampleGeneration?.toFixed(3) ?? -1;
+                const stageDirect = this.renderer._stageDirectRadiance?.toFixed(3) ?? -1;
+                const stageIndirect = this.renderer._stageIndirectRadiance?.toFixed(3) ?? -1;
+                const stageFilter = this.renderer._filterDispatchedThisFrame ? (this.renderer._stageFilter?.toFixed(3) ?? -1) : -1;
+                const stageAccumulate = this.renderer._stageAccumulate?.toFixed(3) ?? -1;
+                const stageCompose = this.renderer._stageCompose?.toFixed(3) ?? -1;
+
+                metrics.push(
+                    `${(elapsed / 1000).toFixed(3)},${this.renderer._frameCount},${fps},${frameTime},${stageSample},${stageDirect},${stageIndirect},${stageFilter},${stageAccumulate},${stageCompose}`
+                );
+            }, 500);
+        });
+
+        this.renderer._playing = false;
+
+        const csvContent = "time,frame_index,fps,frame_time,stage_sample_gen,stage_direct,stage_indirect,stage_filter,stage_accumulate,stage_compose\n" + metrics.join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${experiment.name}_performance.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log(`[BenchmarkRunner] Completed performance: ${experiment.name}`);
     }
 
     async setup(experiment) {
@@ -187,20 +260,30 @@ export class BenchmarkRunner {
     }
 
     async download(experiment) {
-        this.renderer._groundTruthZip.file(
-            "parameters.json",
-            JSON.stringify(this.renderer._getParameters(), null, "    "),
-        );
+        this.renderer._groundTruthZip["parameters.json"] =
+            strToU8(JSON.stringify(this.renderer._getParameters(), null, "    "));
+        this.renderer._groundTruthZip["transfer_function.json"] =
+            strToU8(JSON.stringify(this.renderer._transferFunctionBumps));
 
-        this.renderer._groundTruthZip.file(
-            "transfer_function.json",
-            JSON.stringify(this.renderer._transferFunctionBumps),
-        );
-
-        const blob = await this.renderer._groundTruthZip.generateAsync({
-            type: "blob",
-            compression: "DEFLATE",
+        const chunks = [];
+        const zip = new Zip((err, chunk, final) => {
+            if (err) throw err;
+            chunks.push(chunk);
         });
+
+        const names = Object.keys(this.renderer._groundTruthZip);
+        for (const name of names) {
+            console.log(`[BenchmarkRunner] Compressing ${name}`);
+            const data = this.renderer._groundTruthZip[name];
+            const entry = new ZipDeflate(name, { level: 1 });
+            zip.add(entry);
+            entry.push(data, true);
+            delete this.renderer._groundTruthZip[name];
+            await new Promise(r => setTimeout(r, 0));
+        }
+        zip.end();
+
+        const blob = new Blob(chunks, { type: "application/zip" });
 
         const filename = experiment.radiance.split("/").reverse()[0];
         const url = URL.createObjectURL(blob);

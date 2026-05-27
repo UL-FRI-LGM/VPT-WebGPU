@@ -1,7 +1,7 @@
 import { mat4, vec3 } from '../../lib/gl-matrix-module.js';
 import { centerModelMatrix } from '../WebGPUVolume.js';
 
-function rotatedModelMatrix(angleX, angleY, angleZ) {
+function rotatedModelMatrix(angleX, angleY, angleZ, scaleX, scaleY, scaleZ) {
     const DEG_TO_RAD = Math.PI / 180;
 
     const m = mat4.create();
@@ -13,6 +13,9 @@ function rotatedModelMatrix(angleX, angleY, angleZ) {
     }
     if (angleZ !== undefined) {
         mat4.rotateZ(m, m, angleZ * DEG_TO_RAD);
+    }
+    if (scaleX !== undefined || scaleY !== undefined || scaleZ !== undefined) {
+        mat4.scale(m, m, [scaleX ?? 1, scaleY ?? 1, scaleZ ?? 1]);
     }
     return centerModelMatrix(m);
 }
@@ -59,6 +62,34 @@ const CAMERA_PRESETS = {
         focus: (t) => [ -0.06036277860403061, 0.01638137176632881, -0.06459356099367142 ],
         focusDistance: (t) => 1.1337026689833984,
         modelMatrix: rotatedModelMatrix(0, 0, 180),
+    },
+    front_heptane: {
+        yaw: (t) => 0.5049999999998507,
+        pitch: (t) => -0.4350000000000004,
+        focus: (t) => [ -0.038775622844696045, -0.01985437050461769, -0.049268536269664764 ],
+        focusDistance: (t) => 1.2562702103792711,
+        modelMatrix: rotatedModelMatrix(0, 0, 0),
+    },
+    turntable_heptane: {
+        yaw: (t) => 0.5049999999998507 + t / 2000,
+        pitch: (t) => -0.4350000000000004,
+        focus: (t) => [ -0.038775622844696045, -0.01985437050461769, -0.049268536269664764 ],
+        focusDistance: (t) => 1.2562702103792711,
+        modelMatrix: rotatedModelMatrix(0, 0, 0),
+    },
+    front_neurons: {
+        yaw: (t) => 2.6649999999997753,
+        pitch: (t) => 0.3600000000000016,
+        focus: (t) => [ 0.1733391135931015, -0.7541943192481995, 0.06944463402032852 ],
+        focusDistance: (t) => 2.909982829236379,
+        modelMatrix: rotatedModelMatrix(0, 0, 0, 5, 5, 2),
+    },
+    turntable_neurons: {
+        yaw: (t) => 2.6649999999997753 + t / 2000,
+        pitch: (t) => 0.3600000000000016,
+        focus: (t) => [ 0.1733391135931015, -0.7541943192481995, 0.06944463402032852 ],
+        focusDistance: (t) => 2.909982829236379,
+        modelMatrix: rotatedModelMatrix(0, 0, 0, 5, 5, 2),
     },
 };
 
