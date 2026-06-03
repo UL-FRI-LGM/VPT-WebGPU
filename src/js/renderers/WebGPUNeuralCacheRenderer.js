@@ -532,9 +532,11 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                     this.trainingInProgress = false;
                     this._modelStale = true;
                     if (json["val_loss"] !== null) {
-                        const valLoss = json["val_loss"].toFixed(5);
                         this.dispatchEvent(new CustomEvent("change", {
-                            detail: { name: "valLoss", value: valLoss }
+                            detail: { name: "valLoss", value: json["val_loss"].toFixed(5) }
+                        }));
+                        this.dispatchEvent(new CustomEvent("metrics", {
+                            detail: { valLoss: json["val_loss"], trainTime: json["train_time"] }
                         }));
                     }
                     break;
@@ -562,6 +564,9 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
                 return;
             }
             this.trainingInProgress = true;
+            this.dispatchEvent(new CustomEvent("ground-truth-sent", {
+                detail: { frameIndex: this._groundTruthFrames }
+            }));
         }
 
         const header = new TextEncoder().encode(messageType);

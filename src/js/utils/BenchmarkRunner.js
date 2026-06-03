@@ -32,6 +32,7 @@ export class BenchmarkRunner {
             case "model": await this.runModelExperiment(experiment); break;
             case "image": await this.runImageExperiment(experiment); break;
             case "performance": await this.runPerformanceExperiment(experiment); break;
+            case "online": await this.runOnlineExperiment(experiment); break;
         }
     }
 
@@ -152,6 +153,102 @@ export class BenchmarkRunner {
         URL.revokeObjectURL(url);
 
         console.log(`[BenchmarkRunner] Completed performance: ${experiment.name}`);
+    }
+
+    async runOnlineExperiment(experiment) {
+        console.log(`[BenchmarkRunner] Starting online: ${experiment.name}`);
+
+        await this.setup(experiment);
+
+        // Connect to training server
+        const connected = await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                this.renderer.removeEventListener("change", handler);
+                resolve(false);
+            }, 5000);
+
+            const handler = (e) => {
+                if (e.detail.name === "status" && e.detail.value === "Connected") {
+                    clearTimeout(timeout);
+                    this.renderer.removeEventListener("change", handler);
+                    resolve(true);
+                }
+            };
+            this.renderer.addEventListener("change", handler);
+            this.renderer.trainServerConnect(experiment.train_server);
+        });
+
+        if (!connected) {
+            console.error(`[BenchmarkRunner] Failed to connect to training server: ${experiment.train_server}`);
+            return;
+        }
+
+        this.stop();
+        this.renderer.trainServerSend("seed", { seed: experiment.seed });
+        this.setCameraPreset(experiment.vpt_config.camera_preset);
+
+        // Enable training
+        this.renderer.train = true;
+        const trainEl = document.querySelector('[bind="train"]');
+        if (trainEl) {
+            trainEl.checked = true;
+        }
+
+        const totalDurationMs = this.parseTime(experiment.benchmark_time);
+        const pendingFrames = [];
+        const metrics = [];
+        const startTime = performance.now();
+
+        // Track which frames were sent for training
+        const gtHandler = (e) => {
+            pendingFrames.push(e.detail.frameIndex);
+        };
+        this.renderer.addEventListener("ground-truth-sent", gtHandler);
+
+        // Track validation loss responses
+        const metricsHandler = (e) => {
+            if (pendingFrames.length === 0) {
+                return;
+            }
+            const frameIndex = pendingFrames.shift();
+            const elapsed = performance.now() - startTime;
+            const fps = parseFloat(this.renderer._fps) || 0;
+            const frameTime = parseFloat(this.renderer._frameTime) || 0;
+            const valLoss = e.detail.valLoss.toFixed(5);
+            const trainTime = e.detail.trainTime.toFixed(3);
+            metrics.push(`${elapsed.toFixed(1)},${frameIndex},${valLoss},${trainTime},${fps},${frameTime}`);
+        };
+        this.renderer.addEventListener("metrics", metricsHandler);
+
+        this.play();
+
+        await new Promise(resolve => {
+            const timer = setInterval(() => {
+                if (performance.now() - startTime >= totalDurationMs) {
+                    clearInterval(timer);
+                    resolve();
+                }
+            }, 500);
+        });
+
+        this.renderer._playing = false;
+        this.renderer.train = false;
+        this.renderer.removeEventListener("ground-truth-sent", gtHandler);
+        this.renderer.removeEventListener("metrics", metricsHandler);
+        this.renderer.trainServerDisconnect();
+
+        const csvContent = "time_ms,frame_index,val_loss,train_time_ms,fps,frame_time\n" + metrics.join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${experiment.name}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log(`[BenchmarkRunner] Completed online: ${experiment.name}`);
     }
 
     async setup(experiment) {
