@@ -33,6 +33,7 @@ export class BenchmarkRunner {
             case "image": await this.runImageExperiment(experiment); break;
             case "performance": await this.runPerformanceExperiment(experiment); break;
             case "online": await this.runOnlineExperiment(experiment); break;
+            case "quality": await this.runQualityExperiment(experiment); break;
         }
     }
 
@@ -251,10 +252,119 @@ export class BenchmarkRunner {
         console.log(`[BenchmarkRunner] Completed online: ${experiment.name}`);
     }
 
+    async runQualityExperiment(experiment) {
+        console.log(`[BenchmarkRunner] Starting quality: ${experiment.name}`);
+
+        if (experiment.model) {
+            const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
+            const response = await fetch(modelUrl, { method: "HEAD" });
+            if (!response.ok) {
+                console.log(`[BenchmarkRunner] Model not available, generating radiance: ${experiment.name}`);
+                await this.runModelExperiment(experiment);
+                return;
+            }
+        }
+
+        await this.setup(experiment);
+        this.stop();
+        this.setCameraPreset(experiment.vpt_config.camera_preset);
+
+        if (experiment.model) {
+            const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
+            await loadModelFromURL(modelUrl, this.renderer, this.shader);
+            this.renderer.predict = true;
+        }
+
+        const totalDurationMs = this.parseTime(experiment.benchmark_time);
+        const intervalMs = this.parseTime(experiment.interval);
+        const runs = experiment.runs || 1;
+        const displayModes = experiment.display_modes || ["global"];
+        const canvasMap = {
+            "global": this.renderingContext.canvas,
+            "direct": this.renderer.directCanvas,
+            "indirect": this.renderer.indirectCanvas,
+        };
+
+        const images = [];
+
+        for (let run = 0; run < runs; run++) {
+            console.log(`[BenchmarkRunner] Run ${run + 1}/${runs}`);
+            this.stop();
+
+            this.play();
+
+            const startTime = performance.now();
+            let nextInterval = intervalMs;
+            let i = 0;
+
+            await new Promise(resolve => {
+                const timer = setInterval(async () => {
+                    const elapsed = performance.now() - startTime;
+
+                    if (elapsed >= totalDurationMs) {
+                        clearInterval(timer);
+                        resolve();
+                        return;
+                    }
+
+                    if (elapsed < nextInterval) {
+                        return;
+                    }
+                    nextInterval += intervalMs;
+
+                    const elapsedMs = elapsed.toFixed(0);
+                    const index = i.toString().padStart(3, "0");
+                    for (const mode of displayModes) {
+                        const canvas = canvasMap[mode];
+                        const blob = await this.captureCanvasBlob(canvas);
+                        images.push({
+                            name: `${run}/${mode}/${index}_${elapsedMs}.png`,
+                            data: blob,
+                        });
+                    }
+                    i++;
+                }, 10);
+            });
+
+            this.renderer._playing = false;
+        }
+
+        const chunks = [];
+        const zip = new Zip((err, chunk, final) => {
+            if (err) throw err;
+            chunks.push(chunk);
+        });
+
+        for (const image of images) {
+            const entry = new ZipDeflate(image.name, { level: 1 });
+            zip.add(entry);
+            entry.push(new Uint8Array(await image.data.arrayBuffer()), true);
+            await new Promise(r => setTimeout(r, 0));
+        }
+        zip.end();
+
+        const zipBlob = new Blob(chunks, { type: "application/zip" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${experiment.name}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log(`[BenchmarkRunner] Completed quality: ${experiment.name}`);
+    }
+
     async setup(experiment) {
         await this.loadVolume(experiment);
         await this.loadTransferFunction(experiment);
         this.applyConfig(experiment.vpt_config);
+        this.renderer.predict = false;
+        const predictEl = document.querySelector('[bind="predict"]');
+        if (predictEl) {
+            predictEl.checked = false;
+        }
     }
 
     async loadVolume(experiment) {
@@ -411,14 +521,7 @@ export class BenchmarkRunner {
         return new Promise(resolve => setTimeout(resolve, durationMs));
     }
 
-    async captureAndDownload(experiment, mode) {
-        const canvasMap = {
-            "global": this.renderingContext.canvas,
-            "direct": this.renderer.directCanvas,
-            "indirect": this.renderer.indirectCanvas,
-        };
-        const canvas = canvasMap[mode];
-
+    async captureCanvasBlob(canvas) {
         let blob = await new Promise(resolve => {
             canvas.toBlob(blob => resolve(blob), "image/png");
         });
@@ -437,6 +540,18 @@ export class BenchmarkRunner {
         if (!blob) {
             throw new Error("Failed to capture canvas as PNG");
         }
+
+        return blob;
+    }
+
+    async captureAndDownload(experiment, mode) {
+        const canvasMap = {
+            "global": this.renderingContext.canvas,
+            "direct": this.renderer.directCanvas,
+            "indirect": this.renderer.indirectCanvas,
+        };
+        const canvas = canvasMap[mode];
+        const blob = await this.captureCanvasBlob(canvas);
 
         const filename = `${experiment.name}_${mode}.png`;
         const url = URL.createObjectURL(blob);
