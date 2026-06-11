@@ -301,7 +301,7 @@ export class BenchmarkRunner {
                 const timer = setInterval(async () => {
                     const elapsed = performance.now() - startTime;
 
-                    if (elapsed >= totalDurationMs) {
+                    if (elapsed >= totalDurationMs + intervalMs / 2) {
                         clearInterval(timer);
                         resolve();
                         return;
@@ -323,9 +323,10 @@ export class BenchmarkRunner {
                         });
                     }
                     i++;
-                }, 10);
+                }, 50);
             });
 
+            await new Promise(r => setTimeout(r, 1000));
             this.renderer._playing = false;
         }
 
