@@ -147,7 +147,7 @@ export class BenchmarkRunner {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${experiment.name}_performance.csv`;
+        a.download = `${experiment.name}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
