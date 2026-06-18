@@ -58,6 +58,15 @@ export class BenchmarkRunner {
         await this.setup(experiment);
         this.stop();
         this.setCameraPreset(experiment.vpt_config.camera_preset);
+
+        if (experiment.model) {
+            const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
+            await loadModelFromURL(modelUrl, this.renderer, this.shader);
+            const { camera_preset, background, resolution, ...parameters } = experiment.vpt_config;
+            applyParameters(this.renderer, parameters);
+            this.renderer.predict = true;
+        }
+
         this.renderer.mode = "global";
         const modeEl = document.querySelector('[bind="mode"]');
         if (modeEl) {
@@ -96,6 +105,8 @@ export class BenchmarkRunner {
         if (experiment.model) {
             const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
             await loadModelFromURL(modelUrl, this.renderer, this.shader);
+            const { camera_preset, background, resolution, ...parameters } = experiment.vpt_config;
+            applyParameters(this.renderer, parameters);
             this.renderer.predict = true;
         }
 
@@ -272,6 +283,8 @@ export class BenchmarkRunner {
         if (experiment.model) {
             const modelUrl = `http://${experiment.file_server}/${experiment.model}`;
             await loadModelFromURL(modelUrl, this.renderer, this.shader);
+            const { camera_preset, background, resolution, ...parameters } = experiment.vpt_config;
+            applyParameters(this.renderer, parameters);
             this.renderer.predict = true;
         }
 
