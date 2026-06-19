@@ -1026,10 +1026,10 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         }
 
         const now = performance.now();
-        this._frameTimes.push({start, time});
 
         // Remove older frame times
         this._frameTimes = this._frameTimes.filter(t => now - t.start < 500);
+        this._frameTimes.push({start, time});
 
         const avg = this._frameTimes.reduce(
             (acc, t) => acc + t.time, 0
