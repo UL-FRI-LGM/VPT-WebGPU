@@ -351,14 +351,8 @@ export class WebGPUNeuralCacheRenderer extends WebGPUAbstractComputeRenderer {
         if (this._directTexture) {
             this._directTexture.destroy();
         }
-        if (this._directSampler) {
-            this._directSampler.destroy();
-        }
         if (this._indirectTexture) {
             this._indirectTexture.destroy();
-        }
-        if (this._indirectSampler) {
-            this._indirectSampler.destroy();
         }
         if (this.websocket !== undefined) {
             this.websocket.close();
