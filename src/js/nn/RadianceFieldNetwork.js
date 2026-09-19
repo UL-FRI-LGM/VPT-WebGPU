@@ -54,26 +54,6 @@ export class RadianceFieldNetwork {
             DIR_FIRST_HASH_LEVEL: findFirstHashLevel(dirGridSizesArray, T, 2),
         };
 
-        this.posGridSizes = this.device.createBuffer({
-            label: "radiance field network position grid sizes",
-            size: L * 4,
-            usage:
-                GPUBufferUsage.STORAGE |
-                GPUBufferUsage.UNIFORM |
-                GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(this.posGridSizes, 0, posGridSizesArray);
-
-        this.dirGridSizes = this.device.createBuffer({
-            label: "radiance field network direction grid sizes",
-            size: L * 4,
-            usage:
-                GPUBufferUsage.STORAGE |
-                GPUBufferUsage.UNIFORM |
-                GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(this.dirGridSizes, 0, dirGridSizesArray);
-
         const posTableOffsetsArray = createTableOffsets(
             posGridSizesArray,
             T,
@@ -87,33 +67,21 @@ export class RadianceFieldNetwork {
             2,
         );
 
-        this.posTableOffsets = this.device.createBuffer({
-            label: "radiance field network position table offsets",
-            size: L * 4,
-            usage:
-                GPUBufferUsage.STORAGE |
-                GPUBufferUsage.UNIFORM |
-                GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-            this.posTableOffsets,
-            0,
-            posTableOffsetsArray,
-        );
+        // One vec4u per level: (posGridSize, dirGridSize, posTableOffset, dirTableOffset)
+        const gridParamsArray = new Uint32Array(L * 4);
+        for (let i = 0; i < L; i++) {
+            gridParamsArray[i * 4 + 0] = posGridSizesArray[i];
+            gridParamsArray[i * 4 + 1] = dirGridSizesArray[i];
+            gridParamsArray[i * 4 + 2] = posTableOffsetsArray[i];
+            gridParamsArray[i * 4 + 3] = dirTableOffsetsArray[i];
+        }
 
-        this.dirTableOffsets = this.device.createBuffer({
-            label: "radiance field network direction table offsets",
-            size: L * 4,
-            usage:
-                GPUBufferUsage.STORAGE |
-                GPUBufferUsage.UNIFORM |
-                GPUBufferUsage.COPY_DST,
+        this.gridParams = this.device.createBuffer({
+            label: "radiance field network grid parameters",
+            size: gridParamsArray.byteLength,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        this.device.queue.writeBuffer(
-            this.dirTableOffsets,
-            0,
-            dirTableOffsetsArray,
-        );
+        this.device.queue.writeBuffer(this.gridParams, 0, gridParamsArray);
 
         this.uniformsBuffer = this.device.createBuffer({
             label: "radiance field network uniforms",
@@ -219,10 +187,7 @@ export class RadianceFieldNetwork {
             label: "radiance field network uniforms bind group",
             layout: this.pipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.posGridSizes } },
-                { binding: 1, resource: { buffer: this.dirGridSizes } },
-                { binding: 2, resource: { buffer: this.posTableOffsets } },
-                { binding: 3, resource: { buffer: this.dirTableOffsets } },
+                { binding: 0, resource: { buffer: this.gridParams } },
                 { binding: 4, resource: { buffer: this.uniformsBuffer } },
             ],
         });
@@ -313,10 +278,7 @@ export class RadianceFieldNetwork {
         this.directionTables.destroy();
         this.fcWeights.destroy();
         this.fcBiases.destroy();
-        this.posGridSizes.destroy();
-        this.dirGridSizes.destroy();
-        this.posTableOffsets.destroy();
-        this.dirTableOffsets.destroy();
+        this.gridParams.destroy();
         this.uniformsBuffer.destroy();
         this.outputTexture.destroy();
         this.embeddingsBuffer.destroy();

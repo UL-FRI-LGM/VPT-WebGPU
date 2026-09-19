@@ -18,10 +18,9 @@ struct Uniforms {
 };
 
 // Uniforms
-@group(0) @binding(0) var<storage, read> posGridSizes: array<u32>;  // N_l
-@group(0) @binding(1) var<storage, read> dirGridSizes: array<u32>;  // N_l
-@group(0) @binding(2) var<storage, read> posTableOffsets: array<u32>;
-@group(0) @binding(3) var<storage, read> dirTableOffsets: array<u32>;
+// Per-level grid parameters: x = posGridSize (N_l), y = dirGridSize (N_l),
+// z = posTableOffset, w = dirTableOffset
+@group(0) @binding(0) var<storage, read> gridParams: array<vec4u>;
 @group(0) @binding(4) var<uniform> uniforms: Uniforms;
 
 // Position and direction encoding tables (F=4, so each entry is vec4f)
@@ -59,8 +58,8 @@ struct Radiance {
 
 fn encodePosition(position: vec3f, baseVecOffset: u32) {
     for (var level = 0u; level < POS_FIRST_HASH_LEVEL; level++) {
-        let gridSize = posGridSizes[level];
-        let tableOffset = posTableOffsets[level];
+        let gridSize = gridParams[level].x;
+        let tableOffset = gridParams[level].z;
 
         let cornerTLB = floor(position * f32(gridSize));
         let cornerTLF = cornerTLB + vec3f(0, 0, 1);
@@ -105,8 +104,8 @@ fn encodePosition(position: vec3f, baseVecOffset: u32) {
     }
 
     for (var level = POS_FIRST_HASH_LEVEL; level < LEVELS; level++) {
-        let gridSize = posGridSizes[level];
-        let tableOffset = posTableOffsets[level];
+        let gridSize = gridParams[level].x;
+        let tableOffset = gridParams[level].z;
 
         let cornerTLB = floor(position * f32(gridSize));
         let cornerTLF = cornerTLB + vec3f(0, 0, 1);
@@ -152,8 +151,8 @@ fn encodePosition(position: vec3f, baseVecOffset: u32) {
 
 fn encodeDirection(direction: vec2f, baseVecOffset: u32) {
     for (var level = 0u; level < DIR_FIRST_HASH_LEVEL; level++) {
-        let gridSize = dirGridSizes[level];
-        let tableOffset = dirTableOffsets[level];
+        let gridSize = gridParams[level].y;
+        let tableOffset = gridParams[level].w;
 
         let cornerTL = floor(direction * f32(gridSize));
         let cornerTR = cornerTL + vec2f(0, 1);
@@ -182,8 +181,8 @@ fn encodeDirection(direction: vec2f, baseVecOffset: u32) {
     }
 
     for (var level = DIR_FIRST_HASH_LEVEL; level < LEVELS; level++) {
-        let gridSize = dirGridSizes[level];
-        let tableOffset = dirTableOffsets[level];
+        let gridSize = gridParams[level].y;
+        let tableOffset = gridParams[level].w;
 
         let cornerTL = floor(direction * f32(gridSize));
         let cornerTR = cornerTL + vec2f(0, 1);
